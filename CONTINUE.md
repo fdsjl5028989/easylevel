@@ -8,6 +8,7 @@ version of a trap stays fixed, so the player's knowledge eventually sticks and t
 - **Published artifact:** https://claude.ai/artifact/XdVqQWiDV8QPSZrqUEL9s7 (currently Version 4)
   - To republish from a new session, call the Artifact tool with `url` set to the link above and
     `file_path` pointing at this folder's `easy-level.html` (read the artifact first, as the tool requires).
+- **GitHub repo:** https://github.com/fdsjl5028989/easylevel (branch `main`; this folder is the working copy, `backup/` is gitignored)
 - **Status:** World 1 (levels 1-1, 1-2, 1-3) is complete and published. The player has finished 1-1 and 1-2.
   1-3 was just made harder (see "Open items").
 
