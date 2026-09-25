@@ -1,0 +1,1657 @@
+<title>Easy Level</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+  /* Single-world design: a deceptively friendly sticker-book platformer. */
+  [hidden] { display: none !important; }
+  :root {
+    color-scheme: light;
+    --ink: #26283d;
+    --paper: #ffffff;
+    --sky: #cdeeff;
+    --coral: #ff6b5a;
+    --teal: #2f8f83;
+    --mint: #57c7a3;
+    --sun: #ffcc33;
+    --lilac: #8d6bf0;
+    --muted: #5d6078;
+    --ui: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    --st: env(safe-area-inset-top, 0px);
+    --sb: env(safe-area-inset-bottom, 0px);
+  }
+  html, body { height: 100%; }
+  body { margin: 0; overflow: hidden; background: var(--sky); color: var(--ink); font-family: var(--ui); -webkit-user-select: none; user-select: none; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; touch-action: none; }
+
+  .sticker { background: var(--paper); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 4px 4px 0 var(--ink); }
+  .hud { position: fixed; inset: 0; pointer-events: none; z-index: 7; }
+  .tl { position: absolute; top: calc(var(--st) + 14px); left: 14px; display: flex; gap: 18px; padding: 8px 14px; }
+  .tl > div { display: flex; flex-direction: column; }
+  .lbl { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .num { font-family: var(--mono); font-weight: 700; font-size: 26px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  #deaths { color: var(--coral); }
+  .tr { position: absolute; top: calc(var(--st) + 14px); right: 14px; padding: 8px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 150px; }
+  .lvl { font-weight: 700; font-size: 17px; }
+  .lvl small { font-weight: 500; color: var(--muted); font-size: 12px; }
+  .prog { height: 8px; border: 2px solid var(--ink); border-radius: 6px; overflow: hidden; background: #eef3f7; }
+  .prog i { display: block; height: 100%; width: 0; background: var(--mint); }
+  .mbtn { pointer-events: auto; align-self: flex-start; font: 600 12px var(--ui); color: var(--ink); background: var(--paper); border: 2px solid var(--ink); border-radius: 8px; padding: 2px 8px; cursor: pointer; }
+  .mbtn:focus-visible { outline: 3px dashed var(--lilac); outline-offset: 2px; }
+
+  .rev, .banner { position: absolute; top: calc(var(--st) + 84px); left: 50%; transform: translateX(-50%); padding: 8px 16px; text-align: center; font-weight: 700; font-size: 18px; white-space: nowrap; }
+  .banner { font-size: 16px; white-space: normal; width: max-content; max-width: calc(100% - 40px); background: #eef6ff; }
+  .rev.flip { background: var(--sun); }
+  .revbar { height: 6px; margin-top: 6px; border-radius: 4px; background: #eef3f7; overflow: hidden; border: 2px solid var(--ink); }
+  .revbar i { display: block; height: 100%; width: 100%; background: var(--coral); }
+
+  .patch { position: absolute; top: calc(var(--st) + 84px); left: 50%; transform: translateX(-50%) rotate(-1.5deg); padding: 10px 16px 12px; width: min(420px, calc(100% - 40px)); box-sizing: border-box; animation: patchIn .35s cubic-bezier(.2, 1.6, .4, 1); }
+  .patch .ptag { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--coral); }
+  .patch .ptitle { font-size: 20px; font-weight: 700; }
+  .patch .ptitle span { font-family: var(--mono); font-size: 15px; background: var(--ink); color: var(--paper); padding: 1px 7px; border-radius: 6px; margin-left: 6px; }
+  .patch .pnote { font-size: 15px; color: var(--muted); margin-top: 2px; }
+  @keyframes patchIn { from { transform: translateX(-50%) rotate(-8deg) scale(.6); opacity: 0; } }
+
+  .guide { position: absolute; left: 14px; bottom: calc(var(--sb) + 14px); display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px 12px 12px; max-width: min(520px, calc(100% - 28px)); box-sizing: border-box; transition: opacity .3s, transform .3s; }
+  .guide.off { opacity: 0; transform: translateY(12px); }
+  .face { flex: none; position: relative; width: 46px; height: 46px; background: var(--sun); border: 3px solid var(--ink); border-radius: 10px; transition: background .3s; }
+  .face i { position: absolute; top: 12px; width: 7px; height: 9px; background: var(--ink); border-radius: 4px; animation: blink 4s infinite; }
+  .face i:first-child { left: 10px; } .face i:nth-child(2) { right: 10px; }
+  .face b { position: absolute; left: 11px; right: 11px; bottom: 9px; height: 8px; border: 3px solid var(--ink); border-top: 0; border-radius: 0 0 12px 12px; }
+  .face.smug b { left: 14px; right: 8px; transform: rotate(-8deg); }
+  .face.evil { background: var(--coral); }
+  .face.evil i { height: 5px; top: 14px; animation: none; }
+  .face.evil i:first-child { transform: rotate(25deg); } .face.evil i:nth-child(2) { transform: rotate(-25deg); }
+  .face.evil b { border-radius: 0; height: 4px; bottom: 10px; }
+  @keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+  .gname { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--coral); }
+  #gtext { font-size: 18px; line-height: 1.35; font-weight: 500; min-height: 24px; }
+
+  .keys { position: absolute; right: 14px; bottom: calc(var(--sb) + 14px); font-size: 13px; color: var(--ink); background: rgba(255,255,255,.8); padding: 6px 10px; border-radius: 10px; }
+  kbd { font-family: var(--mono); font-size: 11px; font-weight: 700; background: var(--paper); border: 2px solid var(--ink); border-radius: 5px; padding: 0 5px; box-shadow: 0 2px 0 var(--ink); }
+  .offarrow { position: absolute; right: 10px; padding: 4px 10px; font-weight: 700; font-size: 14px; background: var(--sun); border: 3px solid var(--ink); border-radius: 10px; transform: translateY(-50%); }
+  @media (max-width: 900px) { .keys { display: none; } }
+  @media (max-width: 640px) {
+    .tl { gap: 12px; padding: 6px 10px; } .num { font-size: 20px; }
+    .tr { min-width: 110px; padding: 6px 10px; } .lvl { font-size: 14px; }
+    #gtext { font-size: 15px; }
+    .rev, .patch, .banner { top: calc(var(--st) + 76px); }
+  }
+
+  #touch { position: fixed; inset: 0; pointer-events: none; z-index: 8; }
+  .tb { pointer-events: auto; position: fixed; bottom: calc(var(--sb) + 18px); width: 72px; height: 72px; border-radius: 18px; background: rgba(255,255,255,.85); border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); font: 700 24px var(--ui); color: var(--ink); touch-action: none; }
+  #tLeft { left: 16px; } #tRight { left: 100px; } #tJump { right: 16px; width: 88px; height: 88px; border-radius: 50%; background: var(--sun); font-size: 17px; }
+  body.touch .guide { bottom: calc(var(--sb) + 112px); }
+
+  .overlay { position: fixed; inset: 0; display: grid; place-items: center; padding: calc(var(--st) + 16px) 16px calc(var(--sb) + 16px); background: rgba(38, 40, 61, .25); overflow-y: auto; z-index: 20; }
+  .overlay.fake { z-index: 6; pointer-events: none; }
+  .card { position: relative; width: 100%; max-width: 520px; box-sizing: border-box; padding: 26px 26px 22px; display: flex; flex-direction: column; gap: 14px; }
+  .eyebrow { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--coral); }
+  h1, h2 { margin: 0; font-weight: 700; letter-spacing: -.02em; line-height: .95; text-wrap: balance; }
+  h1 { font-size: clamp(54px, 13vw, 88px); }
+  h1 small { display: block; font-size: 20px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-top: 6px; }
+  h2 { font-size: clamp(34px, 8vw, 48px); }
+  .card p { margin: 0; font-size: 17px; line-height: 1.45; }
+  .card p.dim { font-size: 14px; color: var(--muted); }
+  .controls { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 15px; }
+  .controls dt { text-align: right; } .controls dd { margin: 0; color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn { font: 700 19px var(--ui); color: var(--ink); background: var(--sun); border: 3px solid var(--ink); border-radius: 12px; box-shadow: 4px 4px 0 var(--ink); padding: 10px 20px; cursor: pointer; transition: transform .1s, box-shadow .1s, left .25s, top .25s; }
+  .btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink); }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+  .btn.alt { background: var(--paper); }
+  .btn.small { font-size: 14px; padding: 6px 12px; box-shadow: 3px 3px 0 var(--ink); }
+  .btn:focus-visible { outline: 3px dashed var(--lilac); outline-offset: 4px; }
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 18px; margin: 0; }
+  .stats div { display: flex; flex-direction: column; gap: 2px; }
+  .stats dt { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .stats dd { margin: 0; font-family: var(--mono); font-weight: 700; font-size: 26px; }
+  .versions { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 14px; max-height: 190px; overflow-y: auto; }
+  .versions li { display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px dotted #d8dbe6; padding-bottom: 3px; }
+  .versions span:last-child { font-family: var(--mono); color: var(--muted); white-space: nowrap; }
+  #dodgeWrap { position: relative; min-height: 56px; }
+  #nextBtn { position: relative; }
+
+  /* Level select */
+  .levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 560px) { .levels { grid-template-columns: 1fr; } }
+  .lvtile { text-align: left; font-family: var(--ui); color: var(--ink); background: var(--paper); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 4px 4px 0 var(--ink); padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: transform .1s; }
+  .lvtile:hover:not(:disabled) { transform: translate(-1px, -1px); }
+  .lvtile:focus-visible { outline: 3px dashed var(--lilac); outline-offset: 4px; }
+  .lvtile .lid { font-family: var(--mono); font-weight: 700; font-size: 13px; color: var(--coral); }
+  .lvtile .lname { font-weight: 700; font-size: 20px; line-height: 1.1; }
+  .lvtile .lbest { font-size: 13px; color: var(--muted); }
+  .lvtile.done { background: #eafaf3; }
+  .lvtile:disabled { cursor: not-allowed; background: #eef0f5; color: #8a8ea6; box-shadow: 4px 4px 0 #8a8ea6; border-color: #8a8ea6; }
+  .lvtile:disabled .lid { color: #8a8ea6; }
+
+  /* In-game fakes */
+  .loadov { position: fixed; inset: 0; z-index: 6; pointer-events: none; background: #26283d; display: grid; place-items: center; }
+  .lcard { width: min(420px, calc(100% - 48px)); color: #fff; display: flex; flex-direction: column; gap: 12px; }
+  #lTitle { font-weight: 700; font-size: 30px; }
+  .lbar { height: 16px; border: 3px solid #fff; border-radius: 10px; overflow: hidden; }
+  .lbar i { display: block; height: 100%; width: 0; background: var(--sun); }
+  .ltip { font-size: 16px; color: #cfd3ea; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .patch { animation: none; } .face i { animation: none; } .btn { transition: none; }
+  }
+</style>
+
+<div id="stage"></div>
+
+<div id="loadOv" class="loadov" hidden><div class="lcard"><div id="lTitle">Loading…</div><div class="lbar"><i id="lBar"></i></div><div id="lTip" class="ltip"></div></div></div>
+<section id="fakePause" class="overlay fake" hidden>
+  <div class="card sticker" style="max-width:340px;align-items:center;text-align:center">
+    <h2>Paused</h2>
+    <p id="fpSub" class="dim">The traps are also resting. They're thinking about you.</p>
+    <span class="btn" aria-hidden="true">Resume (P)</span>
+  </div>
+</section>
+<section id="fakeWin" class="overlay fake" hidden>
+  <div class="card sticker">
+    <p class="eyebrow">Level complete</p>
+    <h2 id="fwTitle">Loading complete.</h2>
+    <p id="fwSub">1-2 cleared. Wow, that was quick.</p>
+  </div>
+</section>
+
+<div id="hud" class="hud" hidden>
+  <div class="tl sticker">
+    <div><span class="lbl">Deaths</span><span id="deaths" class="num">0</span></div>
+    <div><span class="lbl">Time</span><span id="time" class="num">0:00</span></div>
+  </div>
+  <div class="tr sticker">
+    <span class="lvl"><span id="lvName">Easy Level</span> <small id="lvId">1-1</small></span>
+    <div class="prog" aria-label="Progress"><i id="prog"></i></div>
+    <button id="musicBtn" class="mbtn" aria-pressed="true">♪ Music on</button>
+  </div>
+  <div id="rev" class="rev sticker" hidden><span id="revText">⇄ Controls reversed</span><div class="revbar" id="revBarWrap"><i id="revBar"></i></div></div>
+  <div id="banner" class="banner sticker" hidden></div>
+  <div id="patch" class="patch sticker" hidden>
+    <div class="ptag">Trap updated</div>
+    <div class="ptitle"><b id="pName">The Gap</b><span id="pVer">v2.0</span></div>
+    <div id="pNote" class="pnote"></div>
+  </div>
+  <div id="offArrow" class="offarrow" hidden>Pip ▸</div>
+  <div id="guide" class="guide sticker off">
+    <div id="face" class="face"><i></i><i></i><b></b></div>
+    <div><div class="gname">The Guide</div><div id="gtext"></div></div>
+  </div>
+  <div class="keys"><kbd>←</kbd><kbd>→</kbd> move · <kbd>Space</kbd> jump (hold = higher) · <kbd>R</kbd> retry · <kbd>P</kbd> pause · <kbd>M</kbd> mute · <kbd>N</kbd> music</div>
+</div>
+
+<div id="touch" hidden>
+  <button id="tLeft" class="tb" aria-label="Left">◀</button>
+  <button id="tRight" class="tb" aria-label="Right">▶</button>
+  <button id="tJump" class="tb" aria-label="Jump">Jump</button>
+</div>
+
+<section id="title" class="overlay">
+  <div class="card sticker">
+    <p class="eyebrow">A very simple platformer</p>
+    <h1>Easy Level<small>(it's easy)</small></h1>
+    <p>Help Pip walk right. Jump over things. Reach the door. Your friendly Guide will be with you the whole way, helping.</p>
+    <dl class="controls">
+      <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Move (A and D work too)</dd>
+      <dt><kbd>Space</kbd></dt><dd>Jump. Tap for a small hop, hold for a big one.</dd>
+      <dt><kbd>R</kbd></dt><dd>Try again from the last flag</dd>
+    </dl>
+    <p class="dim">Traps learn. When one gets you, it updates. The last version of each trap stays put.</p>
+    <div class="row"><button id="start" class="btn">Start (it's easy)</button><button id="toSelect" class="btn alt" hidden>Level select</button></div>
+  </div>
+</section>
+
+<section id="select" class="overlay" hidden>
+  <div class="card sticker" style="max-width:680px">
+    <p class="eyebrow">World 1</p>
+    <h2>Pick a level</h2>
+    <div id="levels" class="levels"></div>
+    <p id="selNote" class="dim">Beat a level to unlock the next one.</p>
+    <div class="row"><button id="selBack" class="btn alt small">Back</button><button id="coward" class="btn alt small">Unlock all (coward mode)</button></div>
+  </div>
+</section>
+
+<section id="paused" class="overlay" hidden>
+  <div class="card sticker" style="max-width:340px;align-items:center;text-align:center">
+    <h2>Paused</h2>
+    <p class="dim">The traps are also resting. They're thinking about you.</p>
+    <div class="row" style="justify-content:center"><button id="resume" class="btn">Resume (P)</button><button id="quit" class="btn alt">Level select</button></div>
+  </div>
+</section>
+
+<section id="win" class="overlay" hidden>
+  <div class="card sticker">
+    <p id="wEyebrow" class="eyebrow">Level complete</p>
+    <h2 id="wTitle">You beat Easy Level.</h2>
+    <p id="wText">The Guide would like it on record that this was easy.</p>
+    <dl class="stats">
+      <div><dt>Deaths</dt><dd id="wDeaths">0</dd></div>
+      <div><dt>Time</dt><dd id="wTime">0:00</dd></div>
+    </dl>
+    <ul id="versions" class="versions"></ul>
+    <p id="shame" class="dim"></p>
+    <div id="dodgeWrap" class="row">
+      <button id="nextBtn" class="btn">Next level →</button>
+      <button id="wSelect" class="btn alt">Level select</button>
+      <button id="copy" class="btn alt">Copy my score</button>
+    </div>
+  </div>
+</section>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js';
+
+/* ============ Helpers ============ */
+const $ = (id) => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const damp = (k, dt) => 1 - Math.exp(-k * dt);
+const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse = matchMedia('(pointer: coarse)').matches;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+/* ============ Renderer & themes ============ */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+$('stage').appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.5, 400);
+const hemi = new THREE.HemisphereLight('#ffffff', '#9fc9c0', 2.0); scene.add(hemi);
+const dl = new THREE.DirectionalLight('#ffffff', 1.6); dl.position.set(-4, 10, 8); scene.add(dl);
+
+const lam = (c, x = {}) => new THREE.MeshLambertMaterial({ color: c, ...x });
+function canvasTex(w, h, draw, rx = 1, ry = 1) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); return t;
+}
+const skyTex = (top, bottom) => canvasTex(2, 256, (g) => { const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, top); gr.addColorStop(1, bottom); g.fillStyle = gr; g.fillRect(0, 0, 2, 256); });
+const THEMES = {
+  day:   { sky: skyTex('#9fdcff', '#e9f8ff'), hemi: 2.0, dl: 1.6, line: '#26283d', hill: ['#a6e3cf', '#8fd6c0'], leaf: '#7fd0b0', night: false },
+  dusk:  { sky: skyTex('#b9b5ff', '#ffd9d0'), hemi: 1.9, dl: 1.4, line: '#26283d', hill: ['#c7b8f0', '#b2a4e6'], leaf: '#a693e0', night: false },
+  night: { sky: skyTex('#0b0f26', '#010207'), hemi: 0.03, dl: 0.0, line: '#05060e', hill: ['#0c1026', '#0a0d1f'], leaf: '#0f1330', night: true },
+};
+const crackTex = canvasTex(128, 128, (g, w, h) => {
+  g.fillStyle = '#c8b27a'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#26283d'; g.lineWidth = 5; g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(10, 20); g.lineTo(40, 55); g.lineTo(30, 80); g.lineTo(60, 110); g.stroke();
+  g.beginPath(); g.moveTo(120, 10); g.lineTo(90, 45); g.lineTo(100, 70); g.lineTo(70, 90); g.stroke();
+});
+const stripeTex = canvasTex(64, 64, (g, w, h) => {
+  g.fillStyle = '#ffcc33'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#26283d';
+  for (let i = -2; i < 4; i++) { g.beginPath(); g.moveTo(i * 32, 0); g.lineTo(i * 32 + 16, 0); g.lineTo(i * 32 + 16 + 64, 64); g.lineTo(i * 32 + 64, 64); g.fill(); }
+}, 2, 5);
+const MAT = {
+  ground: lam('#2f8f83'), grass: lam('#57c7a3'), crackCap: lam('#ffffff', { map: crackTex }),
+  brick: lam('#fbfbf7'), crusher: lam('#ffffff', { map: stripeTex }), crusherGlow: new THREE.MeshBasicMaterial({ map: stripeTex }),
+  spike: lam('#26283d'), white: lam('#ffffff'), ink: lam('#26283d'),
+  enemy: lam('#8d6bf0'), enemyDark: lam('#5d45b0'), door: lam('#d9894a'), doorFrame: lam('#8a4f24'),
+  gold: lam('#ffcc33'), pole: lam('#e6e6e6'), flagOff: lam('#d0d4e0'), coil: lam('#9aa0b5'),
+  cardboard: lam('#c9a36b'), cloud: lam('#ffffff'), trunk: lam('#b58a5a'), player: lam('#ff6b5a'),
+  glowEye: new THREE.MeshBasicMaterial({ color: '#fff27a' }),
+};
+const LINE = new THREE.LineBasicMaterial({ color: '#26283d' });
+function boxWithEdges(w, h, d, mat, parent, x = 0, y = 0, z = 0) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m);
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo), LINE); e.position.set(x, y, z); parent.add(e);
+  return m;
+}
+
+/* ============ Entities ============ */
+const decorGroup = new THREE.Group(), staticGroup = new THREE.Group(), dynGroup = new THREE.Group();
+scene.add(decorGroup, staticGroup, dynGroup);
+let solids = [], hazards = [], enemies = [], doors = [];
+const G = 45;
+
+function makeBlockMesh(w, h, style) {
+  const g = new THREE.Group();
+  if (style === 'ground' || style === 'crackGround') {
+    boxWithEdges(w, h - 0.3, 1.6, MAT.ground, g, 0, -0.15);
+    boxWithEdges(w, 0.3, 1.7, style === 'ground' ? MAT.grass : MAT.crackCap, g, 0, h / 2 - 0.15);
+  } else if (style === 'crusher' || style === 'crusherGlow') {
+    boxWithEdges(w, h, 1.3, style === 'crusher' ? MAT.crusher : MAT.crusherGlow, g);
+  } else if (style === 'spring') {
+    boxWithEdges(1, 0.14, 1, MAT.ink, g, 0, -h / 2 + 0.07);
+    g.userData.coil = boxWithEdges(0.4, 0.34, 0.4, MAT.coil, g, 0, -h / 2 + 0.3);
+    boxWithEdges(1, 0.14, 1, MAT.player, g, 0, h / 2 - 0.07);
+  } else {
+    boxWithEdges(w, h, 1, MAT.brick, g);
+  }
+  return g;
+}
+function addSolid(x, y, w, h, style, o = {}) {
+  const e = { kind: 'solid', x, y, w, h, style, trap: o.trap || null, dx: 0, dy: 0, vx: 0, vy: 0, shake: 0,
+    solid: !o.fake && !o.hidden, fake: !!o.fake, hidden: !!o.hidden, revealed: false,
+    crush: !!o.crush, spring: !!o.spring, springT: 0, dyn: !!o.dyn, crumble: o.crumble ?? null, ct: -1 };
+  e.mesh = makeBlockMesh(w, h, style);
+  if (e.hidden) e.mesh.visible = false;
+  (e.dyn ? dynGroup : staticGroup).add(e.mesh);
+  solids.push(e); syncSolid(e); return e;
+}
+function syncSolid(e) { e.mesh.position.set(e.x + e.w / 2 + (e.shake ? rand(-e.shake, e.shake) : 0), e.y + e.h / 2, 0); }
+const ground = (x0, x1, top = 0, o = {}) => addSolid(x0, top - 8, x1 - x0, 8, 'ground', o);
+const wall = (x0, x1, top) => addSolid(x0, -8, x1 - x0, top + 8, 'ground');
+const brick = (x, y, w = 1, h = 1, o = {}) => addSolid(x, y, w, h, 'brick', o);
+
+function addSpike(x, y, w, dir, o = {}) {
+  const h = 0.75, e = { kind: 'spike', x, y, w, h, dir, vx: 0, vy: 0, trap: o.trap || null, dyn: !!o.dyn, dead: false, hot: false, shake: 0, harmless: false, prop: !!o.prop };
+  const g = new THREE.Group();
+  if (o.ownMat) e.mat = MAT.spike.clone();
+  for (let i = 0; i < w; i++) {
+    const c = new THREE.Mesh(new THREE.ConeGeometry(0.45, h, 4), e.mat || MAT.spike);
+    c.rotation.y = Math.PI / 4; if (dir === 'down') c.rotation.x = Math.PI;
+    c.position.set(i + 0.5, h / 2, 0); g.add(c);
+  }
+  e.mesh = g; (e.dyn ? dynGroup : staticGroup).add(g);
+  hazards.push(e); g.position.set(x, y, 0); return e;
+}
+function addEnemy(x, y, o = {}) {
+  const bat = !!o.bat;
+  const e = { kind: 'enemy', x, y, w: bat ? 0.8 : 0.9, h: bat ? 0.5 : 0.75, baseY: y, vx: (o.speed ?? 2), vy: 0, a: o.a ?? x - 3, b: o.b ?? x + 3,
+    spiky: !!o.spiky || bat, secret: !!o.secret, sleep: !!o.sleep, bat, trap: o.trap || null, dead: false, onGround: true, squashT: 0,
+    sway: o.sway || 0, cx: x, amp: o.amp || 0 };
+  const g = new THREE.Group();
+  const eyeWhite = o.glow ? MAT.glowEye : MAT.white;
+  const body = new THREE.Mesh(new THREE.SphereGeometry(bat ? 0.3 : 0.5, 16, 10), bat ? MAT.ink : MAT.enemy);
+  body.scale.set(1, bat ? 0.9 : 0.78, 0.9); body.position.y = bat ? 0.25 : 0.4; g.add(body);
+  const eyes = new THREE.Group(); g.add(eyes);
+  for (const sx of [-0.15, 0.15]) {
+    const w = new THREE.Mesh(new THREE.SphereGeometry(bat ? 0.09 : 0.12, 10, 8), eyeWhite); w.position.set(sx, bat ? 0.3 : 0.5, bat ? 0.25 : 0.4); eyes.add(w);
+    const p = new THREE.Mesh(new THREE.SphereGeometry(bat ? 0.04 : 0.06, 8, 6), MAT.ink); p.position.set(sx - 0.02, bat ? 0.3 : 0.5, bat ? 0.33 : 0.5); eyes.add(p);
+  }
+  const lids = new THREE.Group(); g.add(lids);
+  for (const sx of [-0.17, 0.17]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.05, 0.05), MAT.ink); l.position.set(sx, 0.5, 0.52); lids.add(l); }
+  const feet = [], wings = [];
+  if (bat) {
+    for (const s of [-1, 1]) { const wg = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.3), MAT.ink); wg.position.set(s * 0.4, 0.3, 0); g.add(wg); wings.push(wg); }
+  } else {
+    for (const sx of [-0.22, 0.22]) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.3), MAT.enemyDark); f.position.set(sx, 0.06, 0); g.add(f); feet.push(f); }
+  }
+  const spikes = new THREE.Group(); g.add(spikes);
+  if (!bat) for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.34, 4), MAT.spike); const a = (i - 2) * 0.42; c.position.set(Math.sin(a) * 0.42, 0.4 + Math.cos(a) * 0.36, 0); c.rotation.z = -a; spikes.add(c); }
+  const zzz = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(128, 64, (g2) => { g2.fillStyle = '#26283d'; g2.font = '700 44px Fredoka, sans-serif'; g2.fillText('z Z z', 6, 46); }), transparent: true }));
+  zzz.scale.set(0.9, 0.45, 1); zzz.position.set(0.4, 1.1, 0); g.add(zzz);
+  e.mesh = g; e.parts = { body, eyes, lids, feet, spikes, zzz, wings };
+  dynGroup.add(g); enemies.push(e); return e;
+}
+function labelPlane(text, w = 1.6, h = 0.45, bg = '#ffffff') {
+  const tex = canvasTex(512, Math.round(512 * h / w), (g, W, H) => {
+    g.fillStyle = bg; g.fillRect(0, 0, W, H); g.strokeStyle = '#26283d'; g.lineWidth = 12; g.strokeRect(6, 6, W - 12, H - 12);
+    g.fillStyle = '#26283d'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    let fs = H * 0.6; g.font = `700 ${fs}px Fredoka, sans-serif`;
+    const tw = g.measureText(text).width; if (tw > W - 40) { fs *= (W - 40) / tw; g.font = `700 ${fs}px Fredoka, sans-serif`; }
+    g.fillText(text, W / 2, H / 2 + 2);
+  });
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
+}
+function addDoor(x, y, o = {}) {
+  const e = { kind: 'door', x, y, w: 1.2, h: 2, real: !!o.real, cardboard: !!o.cardboard, trap: o.trap || null, vx: 0, tipped: 0 };
+  const g = new THREE.Group();
+  const pivot = new THREE.Group(); g.add(pivot);
+  boxWithEdges(1.4, 2.2, 0.4, o.cardboard ? MAT.cardboard : MAT.doorFrame, pivot, 0, 1.1, -0.05);
+  boxWithEdges(1.0, 1.9, 0.45, o.cardboard ? MAT.cardboard : MAT.door, pivot, 0, 0.95, 0);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), MAT.gold); knob.position.set(0.3, 0.95, 0.26); pivot.add(knob);
+  if (o.label) { const l = labelPlane(o.label, o.label.length > 6 ? 2.0 : 1.3); l.position.set(0, 2.55, 0.1); pivot.add(l); }
+  const legs = new THREE.Group(); legs.visible = false; g.add(legs);
+  for (const sx of [-0.3, 0.3]) boxWithEdges(0.1, 0.35, 0.1, MAT.ink, legs, sx, -0.15, 0);
+  e.mesh = g; e.pivot = pivot; e.legs = legs;
+  dynGroup.add(g); doors.push(e); return e;
+}
+function signMesh(lines, x, y, w = 2.6, h = 1.3) {
+  const tex = canvasTex(512, Math.round(512 * h / w), (g, W, H) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#26283d'; g.lineWidth = 14; g.strokeRect(7, 7, W - 14, H - 14);
+    g.fillStyle = '#26283d'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    let fs = (H - 50) / lines.length * 0.8; g.font = `700 ${fs}px Fredoka, sans-serif`;
+    const widest = Math.max(...lines.map((l) => g.measureText(l).width));
+    if (widest > W - 60) { fs *= (W - 60) / widest; g.font = `700 ${fs}px Fredoka, sans-serif`; }
+    lines.forEach((l, i) => g.fillText(l, W / 2, H / 2 + (i - (lines.length - 1) / 2) * fs * 1.1));
+  });
+  const grp = new THREE.Group(); grp.position.set(x, y, -0.9); staticGroup.add(grp);
+  boxWithEdges(0.12, 1.2, 0.12, MAT.trunk, grp, 0, 0.6, 0);
+  const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.1), [MAT.white, MAT.white, MAT.white, MAT.white, lam('#ffffff', { map: tex }), MAT.white]);
+  b.position.y = 1.2 + h / 2; grp.add(b);
+}
+function disposeGroup(grp) {
+  for (const c of [...grp.children]) { grp.remove(c); c.traverse((o) => o.geometry?.dispose()); }
+}
+function clearDynamic() {
+  disposeGroup(dynGroup);
+  solids = solids.filter((s) => !s.dyn); hazards = hazards.filter((h) => !h.dyn); enemies = []; doors = [];
+}
+function move(e, dx, dy) { e.x += dx; e.y += dy; e.dx += dx; e.dy += dy; }
+function fall(e, dt) { if (e.y < -60) return; e.vy -= 50 * dt; move(e, 0, e.vy * dt); }
+
+/* ============ Narrator ============ */
+const narr = { cur: null, shown: 0, hold: 0, queue: [] };
+function say(text, prio = 1) {
+  if (!text) return;
+  if (narr.cur && narr.cur.prio > prio && narr.shown < narr.cur.text.length) { if (narr.queue.length < 2) narr.queue.push({ text, prio }); return; }
+  narr.cur = { text, prio }; narr.shown = 0; narr.hold = 0;
+  $('guide').classList.remove('off'); $('gtext').textContent = '';
+  $('face').classList.toggle('smug', Math.random() < 0.5);
+}
+function updateNarrator(dt) {
+  if (!narr.cur) { if (narr.queue.length) { const n = narr.queue.shift(); say(n.text, n.prio); } return; }
+  const len = narr.cur.text.length, before = Math.floor(narr.shown);
+  narr.shown = Math.min(len, narr.shown + dt * 50);
+  const now = Math.floor(narr.shown);
+  if (now !== before) { $('gtext').textContent = narr.cur.text.slice(0, now); if (now % 2 === 0 && narr.cur.text[now - 1] !== ' ') sfx.blip(); }
+  if (narr.shown >= len) { narr.hold += dt; if (narr.hold > 2.2 + len * 0.035) { narr.cur = null; if (!narr.queue.length) $('guide').classList.add('off'); } }
+}
+function clearNarrator() { narr.cur = null; narr.queue.length = 0; $('guide').classList.add('off'); }
+const cursor = {};
+const pick = (k, arr) => { cursor[k] ??= Math.floor(Math.random() * arr.length); return arr[cursor[k]++ % arr.length]; };
+const GENERIC = ["That's a hole. Holes are bad.", "Gravity is working as intended.", "Classic you.", "Hmm. Have you tried not doing that?"];
+const MILESTONES = { 10: "Ten deaths! A lovely round number.", 25: "Twenty-five deaths. Easy Level is going great.", 50: "Fifty. I'm running out of ways to be supportive. I never started.", 100: "One hundred deaths. I'm framing this." };
+
+/* ============ Audio ============ */
+let actx = null, noiseBuf = null, muted = store.get('easy.muted', false);
+function ensureAudio() {
+  if (!actx) {
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
+    noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (actx.state === 'suspended') actx.resume();
+}
+function tone(f, dur, type = 'square', vol = 0.05, slide = 0, delay = 0) {
+  if (!actx || muted) return;
+  const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, f * slide), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+function noise(dur, vol = 0.1, freq = 800) {
+  if (!actx || muted) return;
+  const t = actx.currentTime, s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  s.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(actx.destination); s.start(t); s.stop(t + dur);
+}
+const sfx = {
+  jump: () => tone(380, 0.12, 'square', 0.04, 1.7),
+  land: () => noise(0.05, 0.08, 400),
+  die: () => { tone(520, 0.45, 'square', 0.06, 0.25); noise(0.25, 0.15, 300); },
+  stomp: () => tone(260, 0.15, 'square', 0.06, 2.2),
+  boing: () => tone(180, 0.35, 'triangle', 0.12, 3.8),
+  rumble: () => noise(0.6, 0.15, 150),
+  crush: () => { noise(0.2, 0.3, 120); tone(70, 0.25, 'sine', 0.2, 0.5); },
+  flag: () => [659, 784, 988].forEach((f, i) => tone(f, 0.14, 'square', 0.04, 0, i * 0.08)),
+  patch: () => { tone(880, 0.06, 'square', 0.04); tone(440, 0.06, 'square', 0.04, 0, 0.07); tone(1320, 0.12, 'square', 0.04, 0, 0.14); },
+  bonk: () => tone(150, 0.12, 'square', 0.07, 0.8),
+  nope: () => tone(120, 0.18, 'square', 0.05, 0.8),
+  flip: () => tone(700, 0.08, 'triangle', 0.06, 0.5),
+  zap: () => { tone(1400, 0.2, 'sawtooth', 0.04, 0.2); noise(0.15, 0.08, 2500); },
+  flash: () => { noise(0.08, 0.2, 3000); tone(90, 0.3, 'sine', 0.12, 0.8); },
+  win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.2, 'square', 0.05, 0, i * 0.12)),
+  blip: () => tone(640 + Math.random() * 80, 0.025, 'triangle', 0.03),
+};
+
+/* ============ Music: chiptune loops, one per level ============ */
+const midi = (n) => { const m = /^([A-G])(#?)(\d)$/.exec(n); return 12 * (+m[3] + 1) + { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] ? 1 : 0); };
+const hz = (n) => 440 * Math.pow(2, (midi(n) - 69) / 12);
+const seq = (bars) => bars.join(' ').split(' ');
+const TUNE_MAJOR = seq(['E5 - G5 - C6 - B5 G5', 'A5 - E5 - C5 E5 A5 -', 'F5 - A5 - C6 - A5 F5', 'G5 - B5 - D6 - C6 B5',
+  'E5 G5 C6 E6 D6 C6 G5 E5', 'A5 C6 E6 C6 A5 E5 C5 E5', 'F5 A5 C6 A5 G5 B5 D6 F6', 'E6 - C6 - G5 - C6 .']);
+const SONGS = {
+  day: { bpm: 144, lead: TUNE_MAJOR, roots: ['C3', 'A2', 'F2', 'G2', 'C3', 'A2', 'F2/G2', 'C3'], wave: 'square', vol: 0.035, tr: 0 },
+  dusk: { bpm: 160, lead: TUNE_MAJOR, roots: ['C3', 'A2', 'F2', 'G2', 'C3', 'A2', 'F2/G2', 'C3'], wave: 'square', vol: 0.035, tr: 2, glitch: true },
+  night: { bpm: 118, wave: 'triangle', vol: 0.07, tr: 0,
+    lead: seq(['A4 - C5 E5 A5 - G5 E5', 'F5 - E5 C5 A4 - C5 -', 'G4 - B4 D5 G5 - F5 D5', 'E5 - G#5 - B5 - G#5 E5',
+      'A5 G5 E5 C5 A4 C5 E5 A5', 'F5 E5 C5 A4 F4 A4 C5 F5', 'D5 F5 A5 F5 E5 G#5 B5 G#5', 'A5 - E5 - A4 - . .']),
+    roots: ['A2', 'F2', 'G2', 'E2', 'A2', 'F2', 'D2/E2', 'A2'] },
+};
+const music = { on: store.get('easy.music', true), playing: false, step: 0, next: 0, timer: 0, song: SONGS.day, rate: 1 };
+function mnote(f, t, dur, type, vol) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.005);
+  g.gain.setValueAtTime(vol, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+function mnoise(t, dur, vol, freq) {
+  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(actx.destination); s.start(t); s.stop(t + dur);
+}
+const eighth = () => 60 / (music.song.bpm * music.rate) / 2;
+function playStep(i, t) {
+  if (muted || !music.on) return;
+  const S = music.song, tr = Math.pow(2, S.tr / 12), n = S.lead[i];
+  if (n !== '-' && n !== '.') {
+    let len = 1; while (S.lead[(i + len) % S.lead.length] === '-') len++;
+    const glitch = S.glitch && Math.random() < 0.06 ? Math.pow(2, 1 / 12) : 1;
+    mnote(hz(n) * tr * glitch, t, eighth() * len * 0.95, S.wave, S.vol);
+  }
+  const bar = Math.floor(i / 8), beat = i % 8;
+  const parts = S.roots[bar].split('/'), root = parts[beat >= 4 && parts[1] ? 1 : 0];
+  mnote(hz(root) * tr * (beat % 2 ? 2 : 1), t, eighth() * 0.9, 'triangle', 0.09);
+  if (beat % 4 === 0) { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12); g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.15); }
+  if (beat % 4 === 2) mnoise(t, 0.12, 0.06, 1500);
+  if (beat % 2 === 1) mnoise(t, 0.03, 0.025, 7000);
+}
+function musicStart() {
+  if (!actx || music.playing) return;
+  music.playing = true; music.step = 0; music.next = actx.currentTime + 0.08;
+  music.timer = setInterval(() => {
+    while (music.next < actx.currentTime + 0.15) { playStep(music.step, music.next); music.next += eighth(); music.step = (music.step + 1) % music.song.lead.length; }
+  }, 25);
+}
+function musicStop() { music.playing = false; clearInterval(music.timer); }
+function sadJingle() { if (!actx || muted || !music.on) return; const t = actx.currentTime; ['B4', 'A#4', 'A4', 'G#4'].forEach((n, i) => mnote(hz(n), t + i * 0.13, i === 3 ? 0.45 : 0.12, 'square', 0.04)); }
+function toggleMusic() {
+  music.on = !music.on; store.set('easy.music', music.on);
+  $('musicBtn').textContent = music.on ? '♪ Music on' : '♪ Music off';
+  $('musicBtn').setAttribute('aria-pressed', String(music.on));
+}
+
+/* ============ Pip ============ */
+const PW = 0.8, PH = 0.9, SPEED = 7, JUMP = 15.5;
+const pl = { x: 1, y: 0, w: PW, h: PH, vx: 0, vy: 0, ground: null, coyote: 0, buffer: 0, face: 1, squash: 1, justJumped: false, frozen: false };
+const plMesh = new THREE.Group(); scene.add(plMesh);
+const plBody = new THREE.Group(); plMesh.add(plBody);
+const plTurn = new THREE.Group(); plBody.add(plTurn);
+const PIP = { eyeWhites: [] };
+{
+  const toon = (c) => new THREE.MeshToonMaterial({ color: c });
+  const outline = (geo, s = 1.07) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#26283d', side: THREE.BackSide })); m.scale.setScalar(s); return m; };
+  const bodyGeo = new THREE.SphereGeometry(0.42, 24, 18);
+  const body = new THREE.Mesh(bodyGeo, toon('#ff6b5a')); body.scale.set(1, 0.98, 0.92); body.position.y = 0.44;
+  body.add(outline(bodyGeo)); plTurn.add(body);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), toon('#ffd3c4')); belly.scale.set(1, 0.9, 0.5); belly.position.set(0, 0.34, 0.26); plTurn.add(belly);
+  PIP.eyes = []; PIP.pupils = [];
+  for (const sx of [-0.14, 0.14]) {
+    const eg = new THREE.Group(); eg.position.set(sx, 0.56, 0.32); plTurn.add(eg);
+    const w = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 10), MAT.white); w.scale.set(0.9, 1.1, 0.6); eg.add(w); PIP.eyeWhites.push(w);
+    w.add(outline(w.geometry, 1.12));
+    const p = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 8), MAT.ink); p.position.set(0, 0, 0.07); eg.add(p);
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 4), MAT.white); shine.position.set(0.025, 0.03, 0.05); p.add(shine);
+    PIP.eyes.push(eg); PIP.pupils.push(p);
+  }
+  for (const sx of [-0.25, 0.25]) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: '#ff9d8c' })); b.scale.set(1, 0.6, 0.3); b.position.set(sx, 0.42, 0.33); plTurn.add(b); }
+  PIP.sprout = new THREE.Group(); PIP.sprout.position.set(0, 0.84, 0); plTurn.add(PIP.sprout);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.2, 6), toon('#3f9a6b')); stem.position.y = 0.1; PIP.sprout.add(stem);
+  for (const s of [-1, 1]) { const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 6), toon('#57c7a3')); leaf.scale.set(1.3, 0.45, 0.7); leaf.position.set(s * 0.09, 0.21, 0); leaf.rotation.z = s * 0.45; PIP.sprout.add(leaf); }
+  const scarfMat = toon('#ffcc33');
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.055, 8, 24), scarfMat); band.rotation.x = Math.PI / 2; band.position.y = 0.3; band.scale.set(1, 0.92, 1); plTurn.add(band);
+  PIP.tail = new THREE.Group(); PIP.tail.position.set(0, 0.3, -0.28); plTurn.add(PIP.tail);
+  const t1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.26), scarfMat); t1.position.z = -0.13; PIP.tail.add(t1);
+  PIP.tail2 = new THREE.Group(); PIP.tail2.position.z = -0.26; PIP.tail.add(PIP.tail2);
+  const t2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.22), scarfMat); t2.position.z = -0.11; PIP.tail2.add(t2);
+  const footMat = toon('#26283d');
+  PIP.feet = [-0.15, 0.15].map((sx) => { const f = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 6), footMat); f.scale.set(1, 0.6, 1.4); f.position.set(sx, 0.05, 0.03); plTurn.add(f); return f; });
+  PIP.hands = [-0.42, 0.42].map((sx) => { const h = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 6), toon('#ff6b5a')); h.position.set(sx, 0.36, 0); h.add(outline(h.geometry, 1.25)); plTurn.add(h); return h; });
+  PIP.sproutAng = 0; PIP.sproutVel = 0; PIP.blinkT = 2; PIP.walk = 0; PIP.yaw = 0.5;
+}
+// Pip's little lantern, only lit at night.
+const lantern = new THREE.PointLight('#ffd9a0', 0, 9, 1.2); lantern.position.set(0.3, 0.9, 1.2); plMesh.add(lantern);
+const eyeGlowMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+
+/* ============ Particles ============ */
+const PN = 400;
+const pMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), new THREE.MeshBasicMaterial(), PN);
+pMesh.frustumCulled = false; scene.add(pMesh);
+const pp = Array.from({ length: PN }, () => ({ p: new THREE.Vector3(), v: new THREE.Vector3(), life: 0, max: 1, size: 1 }));
+const dummy = new THREE.Object3D(), tc = new THREE.Color();
+let pHead = 0;
+for (let i = 0; i < PN; i++) { dummy.scale.setScalar(0); dummy.updateMatrix(); pMesh.setMatrixAt(i, dummy.matrix); pMesh.setColorAt(i, tc.set('#fff')); }
+function burst(x, y, n, colors, spd = 6, life = 0.8, size = 1.3) {
+  for (let i = 0; i < n; i++) {
+    const q = pp[pHead]; pMesh.setColorAt(pHead, tc.set(colors[i % colors.length])); pHead = (pHead + 1) % PN;
+    const a = Math.random() * Math.PI * 2, s = spd * rand(0.3, 1);
+    q.p.set(x, y, rand(-0.3, 0.3)); q.v.set(Math.cos(a) * s, Math.sin(a) * s + 2, rand(-2, 2)); q.life = q.max = life * rand(0.7, 1.2); q.size = size;
+  }
+  pMesh.instanceColor.needsUpdate = true;
+}
+function updateParticles(dt) {
+  for (let i = 0; i < PN; i++) {
+    const q = pp[i]; if (q.life <= 0) continue;
+    q.life -= dt; q.v.y -= 25 * dt; q.p.addScaledVector(q.v, dt);
+    const k = Math.max(q.life / q.max, 0);
+    dummy.position.copy(q.p); dummy.rotation.set(q.life * 6, q.life * 4, 0); dummy.scale.setScalar(q.size * k);
+    dummy.updateMatrix(); pMesh.setMatrixAt(i, dummy.matrix);
+  }
+  pMesh.instanceMatrix.needsUpdate = true;
+}
+
+/* ============ Per-tick control state set by traps ============ */
+let invert = false, revUI = null;
+const remap = { jumpDown: false, swap: false };
+const camCtl = { stuck: null, flip: false };
+const lightCtl = { lantern: true };
+let flashT = 0;
+const ui = { loading: null, fakePause: null, fakeWin: null, banner: null };
+function resetTickControls() {
+  invert = false; revUI = null; remap.jumpDown = false; remap.swap = false;
+  camCtl.stuck = null; camCtl.flip = false; lightCtl.lantern = true;
+  ui.loading = ui.fakePause = ui.fakeWin = ui.banner = null;
+}
+
+/* ============ LEVEL 1-1: Easy Level ============ */
+const LEVEL_1 = {
+  id: '1-1', title: 'Easy Level', theme: 'day', song: 'day', end: 186, dodgy: true, trollCp: 1,
+  intro: "Hi! I'm your Guide. This is Easy Level. Help Pip walk right, jump over things, reach the door. That's the whole game!",
+  winTitle: 'You beat Easy Level.', winText: 'The Guide would like it on record that this was easy.',
+  winLine: "You... finished Easy Level. I'm genuinely annoyed.",
+  checkpoints: [{ x: 1, y: 0 }, { x: 41, y: 0, line: 'Checkpoint! Progress saved!' }, { x: 97, y: 2.5, line: "Checkpoint! This one's real. I think." }, { x: 141, y: 0, line: 'Checkpoint! Nearly there. Nothing bad has ever happened near the end of a level.' }],
+  statics() {
+    wall(-8, -5, 12); ground(-5, 12); ground(20, 64);
+    brick(66, 0); brick(69.5, 1.5);
+    addSolid(75.5, -8, 24.5, 10.5, 'ground');
+    ground(102, 112); wall(112, 113, 7); ground(113, 122);
+    brick(124.5, -0.5, 1.5); brick(128.5, 0, 1.5); brick(132.5, -0.5, 1.5);
+    ground(137, 166); wall(186, 189, 12);
+    signMesh(['EASY LEVEL', 'door this way →'], 3, 0);
+  },
+  extras(T) {
+    addEnemy(82, 2.5, { a: 78, b: 87, speed: 2 });
+    addEnemy(91, 2.5, { a: 88, b: 95, speed: -2.4 });
+    addSpike(113, 0, 2, 'up', { dyn: true, trap: T.spring });
+  },
+  onTick() { if (!levelFlags.blobsSaid && pl.x > 77) { levelFlags.blobsSaid = true; say('These blobs are normal. Stomp away! For real this time.', 1); } },
+  traps: () => [
+    {
+      id: 'gap', name: 'The Gap', zone: [4, 20], max: 2, sayAt: 6.5,
+      approach: [null, "Ah. The floor left. Luckily there's a lovely platform there!", "That platform's fake again, by the way. Don't bother."],
+      deaths: ['Oops! The floors here are a little shy.', 'It was a picture of a platform. Very realistic, though!', "It was real! It just doesn't like being stood on."],
+      patch: [null, 'Floor now leaves before you arrive. Added a platform (decorative).', "Platform is real now. It just doesn't like you."],
+      hint: 'Hint: that platform is real. Land on it and jump off straight away.',
+      build(T, s) {
+        T.a = addSolid(16, -8, 4, 8, 'ground', { dyn: true, trap: T }); T.drop = false; T.p = null; T.pt = -1;
+        if (s >= 1) T.p = addSolid(14.5, -0.5, 2, 1, 'brick', { dyn: true, trap: T, fake: s === 1 });
+      },
+      update(T, dt, s) {
+        if (!T.drop && ((s === 0 && !pl.ground && pl.x + PW / 2 > 11) || (s >= 1 && pl.x > 5))) { T.drop = true; sfx.rumble(); }
+        if (T.drop) fall(T.a, dt);
+        if (s === 2 && T.p) {
+          if (T.pt < 0 && pl.ground === T.p) T.pt = 0;
+          if (T.pt >= 0) { T.pt += dt; T.p.shake = T.pt < 0.35 ? 0.07 : 0; if (T.pt > 0.35) fall(T.p, dt); }
+        }
+      },
+    },
+    {
+      id: 'spike', name: 'The Spike', zone: [22, 40], max: 2, sayAt: 23,
+      approach: ["One little spike. You've got this.", "Same spike. It's been working out.", 'Just jump over it when it comes back. Like last time. Exactly like last time.'],
+      deaths: ['Spikes can jump. Did I not mention that?', 'It turns around. Things do that.', "It copies your jump when it's close. Rude, honestly."],
+      patch: [null, 'Spike no longer jumps. Spike now runs. Both ways.', "Spike copies your jump when it's close. It glows red so you know. We're not monsters."],
+      hint: "Hint: stop, face it, and jump when it's close but not red yet.",
+      build(T, s) { T.sp = addSpike(29.5, 0, 1, 'up', { dyn: true, trap: T, ownMat: true }); T.phase = s === 0 ? 'idle' : 'wait'; T.jumped = false; T.t = 0; },
+      update(T, dt, s) {
+        const sp = T.sp, pc = pl.x + PW / 2, sc = sp.x + 0.5, near = Math.abs(pc - sc) < 2.2;
+        sp.hot = false; sp.shake = 0;
+        if (s === 0) {
+          if (!T.jumped && !pl.ground && pl.vy > 0 && Math.abs(pc - sc) < 2.6) { T.jumped = true; sp.vy = 16; sfx.boing(); }
+        } else if (T.phase === 'wait') {
+          if (pl.x > 23) { T.phase = 'approach'; sp.vx = -3; }
+        } else if (T.phase === 'approach') {
+          if (sp.x < 21) sp.vx = 0;
+          if (pc > sc + 1) { T.phase = 'turn'; T.t = 0; sp.vx = 0; }
+        } else if (T.phase === 'turn') {
+          T.t += dt; sp.shake = 0.08;
+          if (T.t > 0.7) { T.phase = 'chase'; sp.vx = 8.5; say("Oh no. It's turning around.", 1); }
+        } else if (T.phase === 'chase') {
+          if (s === 2) { sp.hot = near; if (pl.justJumped && near && sp.y <= 0.001) { sp.vy = 16; sfx.boing(); } }
+          if (sc > pc + 3 && sp.y <= 0.001) { T.phase = 'leave'; sp.vx = 0; sp.harmless = true; say("It's sulking now. Well done, I suppose.", 1); }
+        }
+        sp.x += sp.vx * dt;
+        if (T.phase === 'leave') { sp.y -= 3 * dt; if (sp.y < -0.8) sp.dead = true; }
+        else { sp.vy -= G * dt; sp.y += sp.vy * dt; if (sp.y < 0) { sp.y = 0; sp.vy = 0; } }
+      },
+    },
+    {
+      id: 'blob', name: 'The Blob', zone: [44, 63], max: 2, sayAt: 45,
+      approach: ['A little blob! You know what to do. Bonk!', "He's spiky now. Just hop over him. He'd never jump.", "He's asleep. Jump way over him. Don't wake him."],
+      deaths: ['Hedgehog, actually. Easy mistake!', "He jumps now. He's been practising.", "You woke him. He's cranky when he wakes up."],
+      patch: [null, 'Blob now openly spiky. Blob learned to jump.', 'Blob is asleep. Spikes are off. Please be quiet.'],
+      hint: 'Fine. Hint: sleeping things squish. Jump on him from up close.',
+      build(T, s) { T.e = addEnemy(53, 0, { trap: T, a: 48, b: 58, speed: s === 2 ? 0 : 2, spiky: s === 1, secret: s === 0, sleep: s === 2 }); },
+      update(T, dt, s) {
+        const e = T.e; if (e.dead) return;
+        const dx = Math.abs(pl.x + PW / 2 - (e.x + e.w / 2));
+        if (s === 1 && pl.justJumped && dx < 3.2 && e.onGround) e.vy = 15;
+        if (s === 2 && pl.justJumped && dx >= 2.2 && dx < 6.5 && e.onGround && pl.x < e.x) { e.sleep = false; e.vy = 15.5; say("Uh oh. He's up.", 1); }
+      },
+    },
+    {
+      id: 'stairs', name: 'The Stairs', zone: [63.5, 76], max: 2, sayAt: 61,
+      approach: ['Some nice easy steps. Up you go.', "I've made the invisible block visible. You're welcome.", 'Jump past the cracked tiles. Those are fake.'],
+      deaths: ['Invisible block! A classic.', 'The edge was fake. The edge is always fake.', 'The cracked ones were fine. The normal ones were fake. Keep up!'],
+      patch: [null, 'Invisible block made visible, for accessibility. Edge made fake, for fun.', 'Swapped which tiles are fake. Added cracks to confuse you.'],
+      hint: 'Hint: tap jump for a tiny hop under the block. Land on the cracked tiles, then hop the next gap.',
+      build(T, s) {
+        addSolid(70.6, 4.5, 1.4, 1, 'brick', { dyn: true, trap: T, hidden: s === 0 });
+        addSolid(72.5, -8, 1.5, 10.5, s === 2 ? 'crackGround' : 'ground', { dyn: true, trap: T, fake: s === 1 });
+        addSolid(74, -8, 1.5, 10.5, 'ground', { dyn: true, trap: T, fake: s === 2 });
+      },
+      update() {},
+    },
+    {
+      id: 'spring', name: 'The Spring', zone: [100, 117], max: 1, sayAt: 101,
+      approach: ['A spring! Bounce over the wall.', 'The spikes are higher now. Totally safe. Hold jump to bounce higher, I guess.'],
+      deaths: ['A bit too bouncy. My bad.', 'Land past the spikes. You can steer in the air, you know.'],
+      patch: [null, 'Spring nerfed. Ceiling spikes moved up. Hold jump for extra spring.'],
+      hint: 'Hint: hold jump as you land on the spring, and hold right the whole way over.',
+      build(T, s) { addSolid(107, 0, 1, 0.6, 'spring', { dyn: true, trap: T, spring: true }); addSpike(103, s === 0 ? 12.5 : 16.5, 9, 'down', { dyn: true, trap: T }); T.weak = 0; },
+      update() {},
+    },
+    {
+      id: 'reverse', name: 'The Platforms', zone: [119, 137], max: 2, sayAt: 118,
+      approach: ['Three nice little platforms. Nothing weird here.', "Heads up: I've reversed your controls!", 'Okay, for real: the controls flip every couple of seconds. Watch the badge.'],
+      deaths: ['Oh, did I reverse your controls? Must have slipped.', "I lied! They weren't reversed. A growth moment for both of us.", 'Left is right, right is left, and you are in a pit.'],
+      patch: [null, 'Controls no longer reversed. Announcement kept.', 'Controls now flip every 1.6 s. Badge now tells the truth.'],
+      hint: 'Hint: only jump right after the badge flips. That gives you the most time.',
+      build(T) { T.t = 0; T.lastFlip = false; },
+      update(T, dt, s) {
+        const inZone = pl.x > 121 && pl.x < 137 && pl.y > -4;
+        if (inZone) T.t += dt;
+        if (s === 0) invert = inZone;
+        else if (s === 1) { if (inZone) revUI = { text: '⇄ Controls reversed', flip: true, frac: null }; }
+        else if (inZone) {
+          const flipped = Math.floor(T.t / 1.6) % 2 === 1;
+          if (flipped !== T.lastFlip) { T.lastFlip = flipped; sfx.flip(); }
+          invert = flipped;
+          revUI = { text: flipped ? '⇄ Controls reversed' : '→ Controls normal', flip: flipped, frac: 1 - (T.t % 1.6) / 1.6 };
+        }
+      },
+    },
+    {
+      id: 'tunnel', name: 'The Tunnel', zone: [143, 160], max: 1, sayAt: 143,
+      approach: ['A cosy tunnel. Take your time in there.', 'The ceiling breathes now. Go when it goes up. Follow the wave.'],
+      deaths: ['It was a crushing tunnel. A crunnel.', 'Timing! Wait for the first block to lift, then run.'],
+      patch: [null, 'Tunnel now crushes on a schedule. Very civilised.'],
+      hint: "Hint: start running the moment the first block finishes lifting. Don't stop.",
+      build(T) { T.segs = [0, 1, 2, 3].map((i) => addSolid(146 + i * 3, 2, 3, 10, 'crusher', { dyn: true, trap: T, crush: true })); T.fired = false; T.t = 0; },
+      update(T, dt, s) {
+        if (s === 0) {
+          if (!T.fired && pl.x > 150.5) T.fired = true;
+          if (T.fired) for (const g of T.segs) { const ny = Math.max(0, g.y - 30 * dt); if (g.y > 0 && ny === 0) sfx.crush(); move(g, 0, ny - g.y); }
+        } else waveCrush(T, dt);
+      },
+    },
+    {
+      id: 'door', name: 'The Door', zone: [160, 186], max: 2, sayAt: 160,
+      approach: ["There's the exit! Go on, you've earned it.", "The door won't run this time. Go on in!", "That door's fake. The real exit is up there. Climb!"],
+      deaths: ['Doors are skittish. Should have mentioned.', 'That was a painting of a door, on a trapdoor. Art!', 'How did you even die here?'],
+      patch: [null, 'Door no longer runs. Door is now a painting.', 'Door is a door. Added a second door, for fun.'],
+      hint: 'Hint: the obvious door. Just the obvious door.',
+      build(T, s) {
+        T.td = addSolid(166, -8, 4, 8, 'ground', { dyn: true, trap: T });
+        T.g8 = addSolid(170, -8, 16, 8, 'ground', { dyn: true, trap: T });
+        T.door = addDoor(167.4, 0, { trap: T, real: s === 2 });
+        T.run = false; T.collapse = false; T.trapdoor = false; T.fellSaid = false; T.fake = null;
+        if (s === 2) {
+          brick(171, 1, 1, 1, { dyn: true, trap: T }); brick(173.5, 3, 1, 1, { dyn: true, trap: T }); brick(176, 5, 4, 1, { dyn: true, trap: T });
+          T.fake = addDoor(177.4, 6, { trap: T, cardboard: true });
+        }
+      },
+      update(T, dt, s) {
+        const d = T.door;
+        if (s === 0) {
+          if (!T.run && pl.x > 163) { T.run = true; d.vx = 8; d.legs.visible = true; say("Wait. Where's it going?", 1); }
+          if (T.run && d.x < 178) d.x += d.vx * dt;
+          if (d.x > 175 && !T.collapse) { T.collapse = true; sfx.rumble(); }
+          if (T.collapse) { fall(T.g8, dt); if (d.x > 169.5) d.y = T.g8.y + T.g8.h; if (!T.fellSaid && T.g8.y < -20) { T.fellSaid = true; say("Well, that's awkward. Press R, I guess.", 2); } }
+        }
+        if (T.trapdoor) { fall(T.td, dt); d.y = Math.min(d.y, T.td.y + T.td.h); }
+        if (T.fake && T.fake.tipped > 0) T.fake.tipped = Math.min(1, T.fake.tipped + dt * 2.5);
+      },
+      touchDoor(T, d, s) {
+        if (d.cardboard) { if (!d.tipped) { d.tipped = 0.01; sfx.bonk(); say("Oh, that one's cardboard. The real exit is the first door. It always was.", 3); } return; }
+        if (d.real) { win(); return; }
+        if (s === 1 && !T.trapdoor) { T.trapdoor = true; sfx.rumble(); }
+      },
+    },
+  ],
+};
+function waveCrush(T, dt, period = 2.4, lag = 0.35) {
+  T.t += dt;
+  T.segs.forEach((g, i) => {
+    const ph = (((T.t - i * lag) % period) + period) % period;
+    const y = ph < 0.1 ? lerp(2, 0, ph / 0.1) : ph < 0.3 ? 0 : ph < 0.6 ? lerp(0, 2, (ph - 0.3) / 0.3) : 2;
+    if (g.y > 0.01 && y <= 0.01 && Math.abs(pl.x - g.x) < 14) sfx.crush();
+    move(g, 0, y - g.y);
+  });
+}
+
+/* ============ LEVEL 1-2: Loading… (the game itself lies) ============ */
+const LEVEL_2 = {
+  id: '1-2', title: 'Loading…', theme: 'dusk', song: 'dusk', end: 130,
+  intro: "Welcome to 1-2! It's still loading. Tip: stand still while it loads.",
+  winTitle: 'Loading complete.', winText: '1-2 cleared. The Guide is checking whether that was allowed.',
+  winLine: "You found the exit. The actual exit. I'm filing a bug report.",
+  checkpoints: [{ x: 1, y: 0 }, { x: 31, y: 0, line: 'Checkpoint! Saving… saving… saved. Probably.' }, { x: 64, y: 0, line: 'Checkpoint! Autosave is on. For now.' }, { x: 108, y: 0, line: 'Checkpoint! Almost at the exit. The real one.' }],
+  statics() {
+    wall(-8, -5, 12); ground(-5, 16); ground(28, 38); ground(42, 58); ground(61, 80);
+    brick(83, 0); ground(86.5, 94); ground(105.5, 130); wall(130, 133, 12);
+    signMesh(['EASY LEVEL 1-2', 'now loading →'], 3, 0);
+  },
+  traps: () => [
+    {
+      id: 'loading', name: 'The Loading Screen', zone: [-5, 15], max: 1, sayAt: 99,
+      approach: [null, null],
+      deaths: ['You can move during loading screens. Everyone knows that.', 'Behind you! Oh. Too late.'],
+      patch: [null, 'Loading screen now see-through. Spike now comes from the other side. Tip unchanged.'],
+      hint: 'Hint: face left and jump when it gets close.',
+      build(T, s) {
+        T.armed = cpIdx === 0; T.t = 0;
+        T.sp = addSpike(s === 0 ? 14 : -4, 0, 1, 'up', { dyn: true, trap: T });
+        if (!T.armed) T.sp.dead = true;
+      },
+      update(T, dt, s) {
+        if (!T.armed) return;
+        T.t += dt;
+        const op = s === 0 ? 0.97 : 0.7, dur = 3.4;
+        if (T.t < dur + 0.5) ui.loading = { op: T.t < dur ? op : op * (1 - (T.t - dur) / 0.5), frac: clamp(T.t / dur, 0, 1), title: 'Loading 1-2…', tip: 'Tip: the spike comes from the right. Stand still while loading!' };
+        const sp = T.sp, pc = pl.x + PW / 2, sc = sp.x + 0.5;
+        if (!sp.harmless && T.t > 0.3) sp.x += (s === 0 ? -4.5 : 4.5) * dt;
+        const passed = s === 0 ? pc > sc + 1 : sc > pc + 1;
+        if (!sp.harmless && (passed || sp.x > 15)) sp.harmless = true;
+        if (sp.harmless) { sp.y -= 3 * dt; if (sp.y < -0.8) sp.dead = true; }
+      },
+    },
+    {
+      id: 'gap2', name: 'The Gap (Remastered)', zone: [15.5, 28], max: 1, sayAt: 13,
+      approach: ['Remember the Gap? It remembers you.', "It falls if you stand on it. Jump off quick!"],
+      deaths: ['Reverted to v1.0! The far floor still leaves when you jump.', 'It was a lift. You were supposed to ride it.'],
+      patch: [null, 'Far floor removed. Platform is now a lift. Instructions not included.'],
+      hint: 'Hint: stand on the platform and let it carry you.',
+      build(T, s) {
+        T.p = brick(18.5, -0.5, 2, 1, { dyn: true, trap: T }); T.pt = -1; T.drop = false; T.dir = 1; T.shown = false;
+        T.F = s === 0 ? addSolid(24, -8, 4, 8, 'ground', { dyn: true, trap: T }) : null;
+      },
+      update(T, dt, s) {
+        if (s === 0) {
+          if (!T.shown && pl.x > 11) { T.shown = true; showPatchCard('The Gap', 'v1.0', 'Reverted to the original. For the fans.'); }
+          if (T.pt < 0 && pl.ground === T.p) T.pt = 0;
+          if (T.pt >= 0) { T.pt += dt; T.p.shake = T.pt < 0.35 ? 0.07 : 0; if (T.pt > 0.35) fall(T.p, dt); }
+          if (!T.drop && T.pt >= 0 && !pl.ground && pl.x > 19.8) { T.drop = true; sfx.rumble(); }
+          if (T.drop) fall(T.F, dt);
+        } else {
+          let nx = T.p.x + T.dir * 3 * dt;
+          if (nx > 25) { nx = 25; T.dir = -1; } if (nx < 17.5) { nx = 17.5; T.dir = 1; }
+          move(T.p, nx - T.p.x, 0);
+        }
+      },
+    },
+    {
+      id: 'fakewin', name: 'The Early Exit', zone: [34, 50], max: 1, sayAt: 34,
+      approach: ["Oh! The exit's early this level. Lucky!", "That door's not the exit. It says so. Signs don't lie."],
+      deaths: ['Level complete! Of the trapdoor.', 'How?'],
+      patch: [null, 'Door is now a shortcut. Added a wall so you need it.'],
+      hint: 'Hint: go through the door. Yes, that door.',
+      build(T, s) {
+        T.td = addSolid(38, -8, 4, 8, 'ground', { dyn: true, trap: T });
+        T.door = addDoor(40, 0, { trap: T, label: s === 1 ? 'NOT THE EXIT' : 'EXIT' });
+        if (s === 1) addSolid(44, -8, 1, 22, 'ground', { dyn: true, trap: T });
+        T.seq = -1; T.stuckT = 0; T.hinted = false; T.falling = false; T.confetti = false;
+      },
+      update(T, dt, s) {
+        if (s === 1 && pl.x > 41.5 && pl.x < 44 && pl.ground) { T.stuckT += dt; if (T.stuckT > 10 && !T.hinted) { T.hinted = true; say('Maybe try the door? The one that says not to?', 2); } }
+        if (T.seq < 0) { if (T.falling) { fall(T.td, dt); T.door.y = Math.min(T.door.y, T.td.y + T.td.h); } return; }
+        T.seq += dt;
+        if (s === 0) {
+          ui.fakeWin = { title: 'Loading complete.', sub: T.seq < 1.7 ? '1-2 cleared. Wow, that was quick.' : '…just kidding.' };
+          if (!T.confetti) { T.confetti = true; sfx.win(); burst(pl.x, pl.y + 1, 50, ['#ffcc33', '#ff6b5a', '#57c7a3', '#8d6bf0'], 8, 1.4); }
+          if (T.seq > 2.1) { T.seq = -1; pl.frozen = false; T.falling = true; sfx.rumble(); }
+        } else {
+          ui.fakeWin = { title: 'Room complete!', sub: 'You cleared this room. The next room is right there.' };
+          if (T.seq > 0.9) { T.seq = -1; pl.frozen = false; teleport(46.5, 0); say('Shortcut! Doors are for going through. Remember that.', 2); }
+        }
+      },
+      touchDoor(T) { if (T.seq < 0 && !T.falling) { T.seq = 0; pl.frozen = true; } },
+    },
+    {
+      id: 'remap', name: 'The Settings', zone: [50, 62], max: 2, sayAt: 50,
+      approach: ['New settings just dropped. Read the banner!', "I've reset the settings. You're welcome.", 'Final settings. I promise. Read carefully.'],
+      deaths: ['Did you read the banner? It was right there.', "The reset didn't save. Settings are hard.", 'Left, right. Right, left. Pit.'],
+      patch: [null, "Settings 'reset'. Banner updated. Settings not updated.", 'Jump is back on Space. Left and right swapped, as compensation.'],
+      hint: 'Hint: the banner tells the truth now. Hold ← to go right.',
+      build() {},
+      update(T, dt, s) {
+        if (!(pl.x > 50 && pl.x < 61.5 && pl.y > -3)) return;
+        if (s === 0) { remap.jumpDown = true; ui.banner = '⚙ Settings updated: Jump is now ↓ (or S)'; }
+        else if (s === 1) { remap.jumpDown = true; ui.banner = '⚙ Settings reset: Jump is back to Space'; }
+        else { remap.swap = true; ui.banner = '⚙ Okay, truly: Jump is Space. ← and → are swapped.'; }
+      },
+    },
+    {
+      id: 'camera', name: 'The Camera', zone: [66, 92], max: 1, sayAt: 67,
+      approach: ["The camera's on a break. Keep going, you'll be fine.", "Camera's back! It's a little dizzy."],
+      deaths: ["Couldn't see that? Me neither.", 'Upside down is just down, but up.'],
+      patch: [null, 'Camera back from break. Mounted upside down.'],
+      hint: 'Hint: right is still right. It just looks like left. Hop the brick, then jump the spike.',
+      build(T) { addSpike(88.5, 0, 1, 'up', { dyn: true, trap: T }); },
+      update(T, dt, s) { if (pl.x > 67 && pl.x < 91) { if (s === 0) camCtl.stuck = 71; else camCtl.flip = true; } },
+    },
+    {
+      id: 'pause', name: 'The Pause Screen', zone: [93, 106], max: 1, sayAt: 92,
+      approach: ['A little bridge. Nice and relaxing.', "Same bridge. I'll pause it for you again, since you liked that."],
+      deaths: ["That wasn't a real pause. Real pauses don't crumble.", "Blind jumping is a skill. You don't have it yet."],
+      patch: [null, 'Pause screen now fully opaque. Bridge now crumbles on contact. Countdown added (inaccurate).'],
+      hint: "Hint: three quick hops, like the first time. I'll say jump every time you land.",
+      build(T, s) { T.c = [95.5, 99, 102.5].map((x) => brick(x, -0.5, 1.5, 1, { dyn: true, trap: T, crumble: s === 0 ? 99 : 0.6 })); T.pt = -1; T.crumbled = false; T.landed = null; },
+      update(T, dt, s) {
+        if (T.pt < 0 && pl.ground === T.c[0]) { T.pt = 0; say(s === 0 ? 'Taking a quick break!' : 'Paused! Jump on my count.', 3); }
+        if (T.pt < 0) return;
+        T.pt += dt;
+        const done = (pl.x > 105.5 && pl.ground) || T.pt > 6;
+        if (!done) ui.fakePause = { op: s === 0 ? 0.84 : 1, sub: s === 0 ? "The traps are also resting. They're thinking about you." : `Resuming in ${Math.max(1, Math.ceil(3 - T.pt))}…` };
+        if (s === 0 && T.pt > 1.0 && !T.crumbled) { T.crumbled = true; T.c.forEach((c) => { c.crumble = 0.5; c.ct = 0; }); }
+        if (s === 1 && pl.ground && T.c.includes(pl.ground) && T.landed !== pl.ground) { T.landed = pl.ground; say('Jump!', 3); }
+      },
+    },
+    {
+      id: 'prop', name: 'The Prop Spike', zone: [111, 118], max: 1, sayAt: 112,
+      approach: [null, "That spike? Also a prop. Walk right through it."],
+      deaths: ['It was a prop! The death counter is real, though.', 'That one was real. The budget came through.'],
+      patch: [null, 'Prop spike replaced with a real one. The budget came through.'],
+      hint: "Hint: jump over it. It's a spike.",
+      build(T, s) { addSpike(114, 0, 1, 'up', { dyn: true, trap: T, prop: s === 0 }); },
+      update() {},
+    },
+    {
+      id: 'exit', name: 'The Exit', zone: [119, 130], max: 1, sayAt: 119,
+      approach: ["There's the exit! For real this time.", 'Two doors. One of them says EXIT. Seems obvious.'],
+      deaths: ['Oops, that loads 1-2 again. Well, some of it.', 'EXIT was a loop. NOT THE EXIT is the exit. Obviously.'],
+      patch: [null, 'Added a second door. Labels are accurate. Technically.'],
+      hint: 'Hint: jump over EXIT. Walk into NOT THE EXIT.',
+      build(T, s) {
+        T.seq = -1;
+        if (s === 0) addDoor(125, 0, { trap: T, label: 'EXIT' });
+        else { addDoor(122.5, 0, { trap: T, label: 'EXIT' }); addDoor(126.6, 0, { trap: T, real: true, label: 'NOT THE EXIT' }); }
+      },
+      update(T, dt) {
+        if (T.seq < 0) return;
+        T.seq += dt;
+        ui.loading = { op: Math.min(1, T.seq * 3), frac: Math.min(1, T.seq / 1.2), title: 'Loading 1-3…', tip: 'Tip: levels are better when they end.' };
+        if (T.seq > 1.5) { T.seq = -1; pl.frozen = false; die('loop', T); }
+      },
+      touchDoor(T, d) { if (d.real) { win(); return; } if (T.seq < 0) { T.seq = 0; pl.frozen = true; } },
+    },
+  ],
+};
+
+/* ============ LEVEL 1-3: Lights Out ============ */
+function makeGuideMesh() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.6, 2.6), new THREE.MeshBasicMaterial({ color: '#ffcc33' })); g.add(body);
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(body.geometry), new THREE.LineBasicMaterial({ color: '#26283d' })));
+  const ink = new THREE.MeshBasicMaterial({ color: '#26283d' });
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.45, 0.05), ink); eye.position.set(s * 0.55, 0.3, 1.31); g.add(eye);
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.1, 0.05), ink); brow.position.set(s * 0.55, 0.72, 1.31); brow.rotation.z = s * -0.4; g.add(brow);
+  }
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 0.05), ink); mouth.position.set(0.1, -0.55, 1.31); mouth.rotation.z = 0.12; g.add(mouth);
+  const glow = new THREE.PointLight('#ffcc33', 12, 14, 1.3); glow.position.z = 2; g.add(glow);
+  return g;
+}
+function makeMushroom(x, y) {
+  const g = new THREE.Group(); g.position.set(x, y, 0.1);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.3, 6), new THREE.MeshBasicMaterial({ color: '#3a6e66' })); stem.position.y = 0.15; g.add(stem);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#7fffd4' })); cap.position.y = 0.28; g.add(cap);
+  const halo = new THREE.Mesh(new THREE.CircleGeometry(0.6, 20), new THREE.MeshBasicMaterial({ color: '#7fffd4', transparent: true, opacity: 0.18, depthWrite: false })); halo.position.set(0, 0.35, -0.05); g.add(halo);
+  dynGroup.add(g); return g;
+}
+const LEVEL_3 = {
+  id: '1-3', title: 'Lights Out', theme: 'night', song: 'night', end: 175, last: true,
+  intro: "Power cut! I've given you a little light. A very little light. Mostly for dramatic effect.",
+  winTitle: 'Lights on. World 1 complete.', winText: "You beat the Guide. It's still stuck by the gap, asking for help. You can leave it there.",
+  winLine: "Fine. You win. I'll be here. In the dark. Thinking about what you did.",
+  checkpoints: [{ x: 1, y: 0 }, { x: 53, y: 0, line: "Checkpoint! I'd light it up for you, but, you know." }, { x: 99, y: 0, line: "Checkpoint! Last one. I've got a surprise for you." }],
+  statics() {
+    wall(-8, -5, 12); ground(-5, 14); ground(28, 48); ground(51, 74); ground(96, 110);
+    brick(113, -0.5, 2); brick(117, 0.5, 2); brick(121.5, -0.5, 2); brick(126, 0.5, 2);
+    brick(144, 0, 2);
+    ground(148, 175); wall(175, 178, 12);
+    signMesh(['LIGHTS OUT', 'mind the dark →'], 3, 0);
+  },
+  traps: () => [
+    {
+      id: 'flash', name: 'The Flash', zone: [11, 29], max: 1, sayAt: 11,
+      approach: ['Hang on, let me get the lights for you!', 'Lights! Memorise that. Things move in the dark.'],
+      deaths: ["Those were the fake platforms. The real ones are shy. They only show up when you're close.", 'They drift when it gets dark. Like me.'],
+      patch: [null, 'Fake platforms removed. Real platforms now drift in the dark.'],
+      hint: "Hint: ignore my flash. Creep to the edge until your light finds the next one, then time it.",
+      build(T, s) {
+        T.R = [[16.5, -0.5], [20.5, 0], [24.5, -0.5]].map(([x, y]) => brick(x, y, 1.5, 1, { dyn: true, trap: T }));
+        T.base = T.R.map((r) => r.x);
+        T.F = s === 0 ? [[16, 1], [20, 2], [24, 1]].map(([x, y]) => brick(x, y, 1.5, 1, { dyn: true, trap: T, fake: true })) : [];
+        T.fired = false; T.t = 0;
+      },
+      update(T, dt, s) {
+        if (!T.fired && pl.x > 11) { T.fired = true; flashT = 0.7; sfx.flash(); }
+        const flashing = flashT > 0, pc = pl.x + PW / 2;
+        if (s === 0) T.R.forEach((r) => (r.mesh.visible = !flashing && Math.abs(pc - (r.x + r.w / 2)) < 2.4));
+        else {
+          T.t += dt;
+          if (!flashing) T.R.forEach((r, i) => move(r, T.base[i] + Math.sin(T.t * 2.4 + i * 1.6) * 1.0 - r.x, 0));
+        }
+      },
+    },
+    {
+      id: 'eyes', name: 'The Eyes', zone: [30, 48], max: 1, sayAt: 31,
+      approach: ['Eyes in the dark. Just a hedgehog. Hop over it, like old times.', "The bat's awake now. At least you can see it. Hop when it's not looking."],
+      deaths: ['There was a bat. Sleeping. Right above. Did I not say?', 'Bats move. Hedgehogs don\'t. You needed the opposite.'],
+      patch: [null, 'Bat is awake and patrolling. Eyes now visible. You are welcome.'],
+      hint: 'Hint: wait for the bat to swing away, then hop the hedgehog with a medium jump.',
+      build(T, s) {
+        addEnemy(38, 0, { trap: T, speed: 0, secret: true, glow: true });
+        if (s === 0) addEnemy(38, 2.0, { trap: T, speed: 0, bat: true, sleep: true });
+        else addEnemy(38, 2.0, { trap: T, speed: 0, bat: true, glow: true, sway: 2.4, amp: 4 });
+      },
+      update() {},
+    },
+    {
+      id: 'lamp', name: 'The Tunnel (Dark Mode)', zone: [55, 72], max: 1, sayAt: 55,
+      approach: ["Oops, your light's out. It's the same tunnel as before, don't worry. Listen carefully.", "Still no light, but I painted the crushers. Glow-in-the-dark! And I tweaked the rhythm. Slightly."],
+      deaths: ['The crushers were very loud. Did you not hear them?', "The wave runs backwards now. Your 1-1 timing won't work here."],
+      patch: [null, 'Crushers now glow. Wave now runs right to left. Rhythm slowed down, to be fair.'],
+      hint: 'Hint: the last crusher drops first now. Go the moment the first one lifts, and run straight through.',
+      build(T, s) { T.segs = [0, 1, 2].map((i) => addSolid(58 + i * 3, 2, 3, 10, s === 0 ? 'crusher' : 'crusherGlow', { dyn: true, trap: T, crush: true })); T.t = 0; },
+      update(T, dt, s) {
+        if (pl.x > 55 && pl.x < 69) lightCtl.lantern = false;
+        if (s === 0) waveCrush(T, dt); else waveCrush(T, dt, 3.0, -0.35);
+      },
+    },
+    {
+      id: 'shrooms', name: 'The Mushrooms', zone: [73, 96], max: 1, sayAt: 72,
+      approach: ['Glowing mushrooms! Follow the lights. Nature knows the way.', "I'm borrowing your lantern. Use the mushrooms. They're very reliable. Mostly."],
+      deaths: ["The mushrooms grow on fake platforms. Everyone knows that. It's in the mushroom handbook.", 'Keep moving! The platforms crumble and the mushrooms go out when you land.'],
+      patch: [null, 'Mushrooms moved to real platforms. Platforms now crumble. Lantern confiscated.'],
+      hint: "Hint: don't stop. Land and jump, land and jump. Aim for the next glow each time.",
+      build(T, s) {
+        const reals = [[76, 0.5], [79.5, 1], [83, 0.5], [86.5, 1], [90, 0.5], [93.5, 0.5]];
+        T.R = reals.map(([x, top]) => brick(x, top - 1, 1.2, 1, { dyn: true, trap: T, crumble: s === 1 ? 0.45 : null }));
+        T.M = [];
+        if (s === 0) {
+          // The glow sits on fakes in the gaps; the real steps stay dark.
+          [[77.9, 1.5], [81.4, 2], [84.9, 1.5], [88.4, 2], [91.9, 1.5]].forEach(([x, top]) => {
+            brick(x, top - 1, 1.2, 1, { dyn: true, trap: T, fake: true });
+            T.M.push({ m: makeMushroom(x + 0.6, top), on: null });
+          });
+        } else T.R.forEach((r) => T.M.push({ m: makeMushroom(r.x + 0.6, r.y + r.h), on: r }));
+      },
+      update(T, dt, s) {
+        if (s === 1 && pl.x > 73 && pl.x < 96) lightCtl.lantern = false;
+        for (const mm of T.M) {
+          if (mm.on && pl.ground === mm.on && mm.m.visible) { mm.m.visible = false; sfx.blip(); }
+          if (mm.on) mm.m.position.set(mm.on.x + 0.6 + (mm.on.shake ? rand(-0.05, 0.05) : 0), mm.on.y + mm.on.h, 0.1);
+          mm.m.children[2].material.opacity = 0.14 + Math.sin(time * 3 + mm.m.position.x) * 0.06;
+        }
+      },
+    },
+    {
+      id: 'guide', name: 'The Guide', zone: [104, 175], max: 1, sayAt: 999,
+      approach: [null, null],
+      deaths: ['Oops. I deleted that one. Tidying up!', "Wait for them to come back! Or don't. I'm right behind you."],
+      patch: [null, "Deleted blocks now come back. Eventually. I'm still coming."],
+      hint: 'Hint: when a block vanishes, stop on the one before it. It comes back. Then go, go, go.',
+      build(T) {
+        T.p5 = brick(130.5, -0.5, 2, 1, { dyn: true, trap: T });
+        T.p6 = brick(135, 0, 2, 1, { dyn: true, trap: T });
+        T.p7 = brick(139.5, -0.5, 2, 1, { dyn: true, trap: T });
+        T.g = makeGuideMesh(); T.g.visible = false; dynGroup.add(T.g);
+        T.state = 'idle'; T.gx = 0; T.del5 = -1; T.del7 = -1; T.deleted = false;
+        addDoor(168, 0, { trap: T, real: true, label: 'EXIT' });
+        music.rate = 1; $('face').classList.remove('evil');
+      },
+      update(T, dt, s) {
+        if (T.state === 'idle' && pl.x > 106) {
+          T.state = 'chase'; T.gx = pl.x - 13; T.g.visible = true; music.rate = 1.3; $('face').classList.add('evil'); sfx.zap();
+          say("Hi! It's me, the Guide. I'm coming to help. Run.", 3);
+        }
+        if (T.state === 'chase') {
+          T.gx += 5.5 * dt;
+          if (pl.x < T.gx + 1.3) { die('guide', T); return; }
+          if (s === 0) {
+            if (!T.deleted && !pl.ground && pl.x > 128.3 && pl.vx > 0) { T.deleted = true; zapBlock(T.p5); say('Oops. Deleted that. Tidying up!', 3); }
+          } else {
+            if (T.del5 < 0 && pl.x > 124) { T.del5 = 0; zapBlock(T.p5); say("Deleting this one. It'll be back. Probably.", 3); }
+            if (T.del5 >= 0 && (T.del5 += dt) > 1.2 && !T.p5.solid) restoreBlock(T.p5);
+            if (T.del7 < 0 && pl.ground === T.p6) { T.del7 = 0; zapBlock(T.p7); say('And that one. Spring cleaning!', 3); }
+            if (T.del7 >= 0 && (T.del7 += dt) > 0.8 && !T.p7.solid) restoreBlock(T.p7);
+          }
+          if (pl.x > 148 && pl.ground) { T.state = 'stuck'; music.rate = 1; say("Wait. I'm stuck. The door only opens from your side. Help me?", 3); }
+        }
+        if (T.state === 'stuck') T.gx = Math.min(T.gx + 6 * dt, 144.5);
+        T.g.position.set(T.gx, 2.4 + Math.sin(time * 3) * 0.2, 0);
+        T.g.rotation.z = Math.sin(time * 2) * 0.06;
+      },
+      touchDoor(T, d) { if (d.real) win(); },
+    },
+  ],
+};
+function restoreBlock(b) { b.solid = true; b.mesh.visible = true; sfx.patch(); burst(b.x + b.w / 2, b.y + b.h / 2, 16, ['#ffffff', '#ffcc33'], 3, 0.4, 0.8); }
+function zapBlock(b) { b.solid = false; sfx.zap(); burst(b.x + b.w / 2, b.y + b.h / 2, 24, ['#ffcc33', '#ffffff'], 5, 0.6, 1); b.mesh.visible = false; }
+const LEVELS = [LEVEL_1, LEVEL_2, LEVEL_3];
+
+/* ============ Game state ============ */
+let state = 'title', L = null, levelIdx = 0, TRAPS = [], checkpoints = [];
+let deaths = 0, playTime = 0, dead = false, fakeDead = false, deadT = 0, cpIdx = 0, cpTrolled = false, shake = 0, won = false, time = 0;
+let levelFlags = {};
+const progress = Object.assign({ unlocked: 1, best: {}, coward: false }, store.get('easy.progress', {}));
+const saveProgress = () => store.set('easy.progress', progress);
+const keys = {};
+const touch = { l: false, r: false, j: false };
+const JUMP_KEYS = ['Space', 'ArrowUp', 'KeyW'], DOWN_KEYS = ['ArrowDown', 'KeyS'];
+const isJumpKey = (code) => (remap.jumpDown ? DOWN_KEYS : JUMP_KEYS).includes(code);
+const jumpHeld = () => touch.j || (remap.jumpDown ? (keys.ArrowDown || keys.KeyS) : (keys.Space || keys.ArrowUp || keys.KeyW));
+
+function buildDecor(th) {
+  disposeGroup(decorGroup);
+  const T = THEMES[th], len = L.end + 30;
+  const hillMats = T.hill.map((c) => lam(c)), leafMat = lam(T.leaf);
+  for (let x = -20; x < len; x += 9) {
+    const r = rand(10, 22);
+    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), hillMats[Math.floor(Math.random() * 2)]);
+    m.position.set(x + rand(-3, 3), -r * 0.55 - 2, -40 - rand(0, 18)); m.scale.y = 0.7; decorGroup.add(m);
+  }
+  if (T.night) {
+    const pos = [];
+    for (let i = 0; i < 500; i++) pos.push(rand(-40, len + 20), rand(2, 40), rand(-80, -50));
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    decorGroup.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: '#dfe6ff', size: 2, sizeAttenuation: false })));
+    const moon = new THREE.Mesh(new THREE.CircleGeometry(4, 32), new THREE.MeshBasicMaterial({ color: '#fff4d6' })); moon.position.set(len * 0.6, 26, -70); decorGroup.add(moon);
+  } else {
+    for (let x = -10; x < len; x += 10) {
+      const g = new THREE.Group(); g.position.set(x + rand(-4, 4), rand(8, 16), -26 - rand(0, 10)); decorGroup.add(g);
+      for (let k = 0; k < 3; k++) { const c = new THREE.Mesh(new THREE.IcosahedronGeometry(rand(1.2, 2), 0), MAT.cloud); c.position.set(k * 1.8, rand(-0.3, 0.5), 0); g.add(c); }
+    }
+  }
+  for (let i = 0; i < len / 6; i++) {
+    const t = new THREE.Group(); t.position.set(rand(-4, L.end), -0.2, -3.5 - rand(0, 3)); decorGroup.add(t);
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 1.4, 6), MAT.trunk); tr.position.y = 0.7; t.add(tr);
+    const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(rand(0.8, 1.3), 0), leafMat); lf.position.y = 1.8; t.add(lf);
+  }
+}
+function applyTheme(th) {
+  const T = THEMES[th];
+  scene.background = T.sky; hemi.intensity = T.hemi; dl.intensity = T.dl; LINE.color.set(T.line);
+  lantern.intensity = T.night ? 7 : 0; lantern.distance = 5.5; lantern.decay = 1.4;
+  PIP.eyeWhites.forEach((w) => (w.material = T.night ? eyeGlowMat : MAT.white));
+}
+function loadLevel(i) {
+  levelIdx = i; L = LEVELS[i];
+  disposeGroup(staticGroup); clearDynamic(); solids = []; hazards = [];
+  applyTheme(L.theme); buildDecor(L.theme);
+  L.statics();
+  checkpoints = L.checkpoints.map((c, idx) => {
+    const cp = { ...c, idx, active: idx === 0 };
+    if (idx > 0) {
+      const g = new THREE.Group(); g.position.set(c.x, c.y, -0.3); staticGroup.add(g);
+      boxWithEdges(0.12, 2.4, 0.12, MAT.pole, g, 0, 1.2, 0);
+      cp.flag = boxWithEdges(0.9, 0.55, 0.06, MAT.flagOff, g, 0.5, 2.1, 0);
+    }
+    return cp;
+  });
+  TRAPS = L.traps(); TRAPS.forEach((T) => { T.stage = 0; T.kills = 0; T.finalDeaths = 0; });
+  deaths = 0; playTime = 0; cpIdx = 0; cpTrolled = false; won = false; dead = false; fakeDead = false; levelFlags = {};
+  music.song = SONGS[L.song]; music.rate = 1; musicStop();
+  $('lvName').textContent = L.title; $('lvId').textContent = L.id;
+  $('face').classList.remove('evil');
+  clearNarrator(); $('patch').hidden = true;
+  buildLevel(); spawn();
+  camera.position.set(pl.x + 3, 4, camDist);
+}
+function playLevel(i) {
+  ensureAudio();
+  for (const id of ['title', 'select', 'win', 'paused']) $(id).hidden = true;
+  loadLevel(i);
+  $('hud').hidden = false; $('touch').hidden = !coarse;
+  state = 'play';
+  say(L.intro, 3);
+}
+function buildLevel() {
+  clearDynamic();
+  for (const T of TRAPS) { T.said = false; T.build(T, T.stage); }
+  const byId = Object.fromEntries(TRAPS.map((T) => [T.id, T]));
+  L.extras?.(byId);
+}
+function spawn() {
+  const cp = checkpoints[cpIdx];
+  pl.x = cp.x - PW / 2; pl.y = cp.y; pl.vx = pl.vy = 0; pl.ground = null; pl.squash = 1; pl.face = 1; pl.frozen = false;
+  plMesh.visible = true;
+  camera.position.x = pl.x + 3;
+}
+function teleport(x, y) {
+  burst(pl.x + PW / 2, pl.y + 0.5, 20, ['#ffffff', '#8d6bf0'], 4, 0.5, 1);
+  pl.x = x; pl.y = y; pl.vx = pl.vy = 0; pl.ground = null;
+  camera.position.x = pl.x + 2;
+  burst(pl.x + PW / 2, pl.y + 0.5, 20, ['#ffffff', '#8d6bf0'], 4, 0.5, 1);
+}
+const trapAt = (x) => TRAPS.find((T) => x >= T.zone[0] && x <= T.zone[1]) || null;
+function advanceTrap(trap) {
+  trap.kills++;
+  if (trap.stage < trap.max) { trap.stage++; setTimeout(() => showPatch(trap), 500); }
+  else if (++trap.finalDeaths === 3) narr.queue.push({ text: trap.hint, prio: 2 });
+}
+function die(cause, trap) {
+  if (dead || won) return;
+  dead = true; deadT = 0; deaths++; pl.frozen = false;
+  if (cause !== 'loop') { plMesh.visible = false; burst(pl.x + PW / 2, pl.y + PH / 2, 40, ['#ff6b5a', '#26283d', '#ffffff']); sfx.die(); if (!reduceMotion) shake = 0.5; }
+  sadJingle();
+  trap = trap || trapAt(pl.x + PW / 2);
+  let line;
+  if (trap) { line = trap.deaths[trap.stage]; advanceTrap(trap); } else line = pick('generic', GENERIC);
+  if (cause === 'guide') line = pick('caught', ["Caught you! Let's go again.", 'Tag! You were it.', 'Gotcha. I only wanted to help.']);
+  if (cause === 'retry') line = pick('retry', ['Starting over. Bold.', 'The R key. A classic move.', 'Fresh start! Same you.']);
+  if (MILESTONES[deaths]) line = MILESTONES[deaths];
+  say(line, 2);
+}
+function fakeDie(trap) {
+  if (dead || won) return;
+  dead = true; fakeDead = true; deadT = 0; deaths++;
+  plMesh.visible = false; burst(pl.x + PW / 2, pl.y + PH / 2, 40, ['#ffcc33', '#ff6b5a', '#57c7a3', '#ffffff']);
+  sfx.die(); sadJingle();
+  say(trap.deaths[0], 2); advanceTrap(trap);
+}
+function respawn() {
+  dead = false;
+  if (fakeDead) { fakeDead = false; plMesh.visible = true; pl.vx = pl.vy = 0; say('See? Totally fine. Still counts, though.', 2); return; }
+  if (L.trollCp && cpIdx === L.trollCp && !cpTrolled) {
+    cpTrolled = true; cpIdx = 0;
+    setTimeout(() => say("Checkpoint? Oh, that flag was decorative. It's real now, though. Promise.", 3), 250);
+  }
+  buildLevel(); spawn();
+}
+let patchTimer = 0;
+function showPatchCard(name, ver, note) {
+  $('pName').textContent = name; $('pVer').textContent = ver; $('pNote').textContent = note;
+  const el = $('patch'); el.hidden = true; void el.offsetWidth; el.hidden = false;
+  patchTimer = 3.4; sfx.patch();
+}
+const showPatch = (T) => showPatchCard(T.name, `v${T.stage + 1}.0`, T.patch[T.stage]);
+
+let dodges = 0;
+function win() {
+  if (won) return;
+  won = true; state = 'won'; pl.frozen = true;
+  sfx.win(); say(L.winLine, 3);
+  burst(pl.x + PW / 2, pl.y + 1, 80, ['#ffcc33', '#ff6b5a', '#57c7a3', '#8d6bf0', '#ffffff'], 9, 1.6);
+  const prev = progress.best[L.id];
+  if (!prev || deaths < prev.deaths || (deaths === prev.deaths && playTime < prev.time)) progress.best[L.id] = { deaths, time: Math.round(playTime) };
+  progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, levelIdx + 2));
+  saveProgress();
+  setTimeout(() => {
+    $('wEyebrow').textContent = L.last ? 'World 1 complete' : `Level ${L.id} complete`;
+    $('wTitle').textContent = L.winTitle; $('wText').textContent = L.winText;
+    $('wDeaths').textContent = deaths; $('wTime').textContent = fmtTime(playTime);
+    $('versions').innerHTML = TRAPS.map((T) => `<li><span>${T.name}</span><span>v${T.stage + 1}.0 · got you ${T.kills}×</span></li>`).join('');
+    $('shame').textContent = shameText();
+    $('nextBtn').textContent = L.last ? 'Play 1-1 again' : 'Next level →';
+    dodges = L.dodgy ? 0 : 3; $('nextBtn').style.left = '0px'; $('nextBtn').style.top = '0px';
+    $('win').hidden = false; $('copy').focus({ preventScroll: true });
+  }, 1400);
+}
+const shameText = () => `I died ${deaths} time${deaths === 1 ? '' : 's'} on Easy Level ${L.id} in ${fmtTime(playTime)}. It's easy, apparently.`;
+
+/* ============ Physics ============ */
+const overlap = (a, b) => a.x < b.x + b.w - 1e-4 && a.x + a.w > b.x + 1e-4 && a.y < b.y + b.h - 1e-4 && a.y + a.h > b.y + 1e-4;
+function moveX(d) {
+  if (!d) return;
+  pl.x += d;
+  for (const s of solids) {
+    if (s.hidden && !s.revealed && overlap(pl, s)) reveal(s);
+    if (!s.solid || !overlap(pl, s)) continue;
+    pl.x = d > 0 ? s.x - PW : s.x + s.w; pl.vx = 0;
+  }
+}
+let landed = null;
+function moveY(d) {
+  if (!d) return;
+  pl.y += d;
+  for (const s of solids) {
+    if (s.hidden && !s.revealed && overlap(pl, s)) reveal(s);
+    if (!s.solid || !overlap(pl, s)) continue;
+    if (d < 0) { pl.y = s.y + s.h; landed = s; pl.vy = 0; }
+    else { pl.y = s.y - PH; if (pl.vy > 0) { pl.vy = 0; sfx.bonk(); } }
+  }
+}
+function reveal(s) {
+  s.revealed = true; s.solid = true; s.mesh.visible = true; sfx.bonk();
+  burst(s.x + s.w / 2, s.y, 10, ['#ffffff', '#26283d'], 3, 0.4, 0.8);
+}
+const pbox = { x: 0, y: 0, w: 0, h: 0 };
+function tick(dt) {
+  if (dead) { deadT += dt; if (deadT > 0.9) respawn(); return; }
+  pl.justJumped = false;
+  for (const s of solids) { s.dx = 0; s.dy = 0; }
+  resetTickControls();
+  for (const T of TRAPS) {
+    T.update(T, dt, T.stage);
+    if (dead) return;
+    if (!T.said && pl.x > T.sayAt) { T.said = true; say(T.approach[T.stage], 1); }
+  }
+  L.onTick?.();
+  // Crumbling blocks
+  for (const s of solids) {
+    if (s.crumble == null) continue;
+    if (s.ct < 0 && pl.ground === s) s.ct = 0;
+    if (s.ct >= 0) { s.ct += dt; s.shake = s.ct < s.crumble ? 0.06 : 0; if (s.ct >= s.crumble) fall(s, dt); }
+  }
+  if (pl.frozen) return;
+
+  if (pl.ground && (pl.ground.dx || pl.ground.dy)) { pl.x += pl.ground.dx; pl.y += pl.ground.dy; }
+  for (const s of solids) {
+    if (!s.solid || !(s.dx || s.dy) || !overlap(pl, s)) continue;
+    if (s.crush) { die('crush', s.trap); return; }
+    pl.y = s.y + s.h;
+  }
+
+  let dir = ((keys.ArrowRight || keys.KeyD || touch.r) ? 1 : 0) - ((keys.ArrowLeft || keys.KeyA || touch.l) ? 1 : 0);
+  if (invert !== remap.swap) dir = -dir;
+  if (dir) pl.face = dir;
+  const target = dir * SPEED, acc = (pl.ground ? 80 : 50) * dt;
+  pl.vx += clamp(target - pl.vx, -acc, acc);
+
+  pl.coyote = pl.ground ? 0.08 : pl.coyote - dt;
+  pl.buffer -= dt;
+  if (pl.buffer > 0 && pl.coyote > 0) {
+    pl.vy = jumpHeld() ? JUMP : 5; pl.buffer = 0; pl.coyote = 0; pl.ground = null; pl.justJumped = true; pl.squash = 1.3; sfx.jump();
+  }
+  pl.vy = Math.max(pl.vy - G * dt, -24);
+
+  const wasGround = !!pl.ground;
+  landed = null;
+  moveX(pl.vx * dt);
+  moveY(pl.vy * dt);
+  pl.ground = landed;
+  if (pl.ground?.spring) {
+    const T = pl.ground.trap, hold = jumpHeld();
+    pl.vy = T.stage === 0 ? 33 : hold ? 26 : 19;
+    pl.ground.springT = 1; pl.ground = null; pl.squash = 1.4; sfx.boing();
+    if (T.stage >= 1 && !hold && ++T.weak === 2) say('Have you tried holding jump? No? Me neither.', 2);
+  }
+  if (!wasGround && pl.ground) { pl.squash = 0.7; sfx.land(); }
+
+  Object.assign(pbox, { x: pl.x + 0.06, y: pl.y + 0.04, w: PW - 0.12, h: PH - 0.08 });
+  for (const h of hazards) {
+    if (h.dead || h.harmless) continue;
+    const hb = { x: h.x + 0.2, y: h.dir === 'down' ? h.y + 0.15 : h.y, w: h.w - 0.4, h: h.h - 0.15 };
+    if (overlap(pbox, hb)) { if (h.prop) { h.harmless = true; fakeDie(h.trap); } else die('spike', h.trap); return; }
+  }
+  for (const e of enemies) {
+    if (e.dead) { e.squashT += dt; continue; }
+    if (e.bat) { e.y = e.baseY + Math.sin(time * 3) * 0.12; if (e.sway) e.x = e.cx + Math.sin(time * e.sway) * e.amp; }
+    else {
+      if (!e.sleep) {
+        e.x += e.vx * dt;
+        if (e.x < e.a) { e.x = e.a; e.vx = Math.abs(e.vx); }
+        if (e.x + e.w > e.b) { e.x = e.b - e.w; e.vx = -Math.abs(e.vx); }
+      }
+      e.vy -= G * dt; e.y += e.vy * dt;
+      if (e.y <= e.baseY) { e.y = e.baseY; e.vy = 0; e.onGround = true; } else e.onGround = false;
+    }
+    const eb = { x: e.x + 0.06, y: e.y, w: e.w - 0.12, h: e.h };
+    if (!overlap(pbox, eb)) continue;
+    const stomp = pl.vy <= 0 && pl.y > e.y + e.h * 0.45;
+    if (stomp && !e.spiky && !e.secret) {
+      e.dead = true; pl.vy = 12; sfx.stomp(); burst(e.x + e.w / 2, e.y + 0.4, 14, ['#8d6bf0', '#ffffff'], 4, 0.5, 1);
+      if (e.trap?.id === 'blob') say('He squished! Sleeping things squish. Who knew? Me. I knew.', 2);
+    } else {
+      if (stomp && e.secret) { e.spiky = true; e.secret = false; }
+      die('enemy', e.trap); return;
+    }
+  }
+  for (const d of doors) {
+    const db = { x: d.x + 0.2, y: d.y, w: d.w - 0.4, h: d.h };
+    if (overlap(pbox, db)) d.trap?.touchDoor?.(d.trap, d, d.trap.stage);
+    if (won || pl.frozen) return;
+  }
+  for (const cp of checkpoints) {
+    if (cp.idx > cpIdx && pl.x + PW / 2 > cp.x && Math.abs(pl.y - cp.y) < 3 && pl.ground) {
+      cpIdx = cp.idx; cp.active = true; cp.flag.material = MAT.gold; sfx.flag();
+      burst(cp.x + 0.5, cp.y + 2.1, 16, ['#ffcc33', '#ffffff'], 4, 0.6, 1);
+      say(cp.line, 2);
+    }
+  }
+  if (pl.y < -7) die('pit');
+}
+
+/* ============ Rendering ============ */
+const camTarget = new THREE.Vector3();
+let camDist = 24, camRoll = 0;
+function fitCamera() {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const across = camera.aspect < 1 ? 13 : 20;
+  camDist = Math.max(12 / 2 / t, across / 2 / (t * camera.aspect));
+}
+fitCamera();
+const projV = new THREE.Vector3();
+function render(dt, t) {
+  for (const s of solids) {
+    syncSolid(s);
+    if (s.spring) { s.springT = Math.max(0, s.springT - dt * 4); s.mesh.userData.coil.scale.y = 1 - Math.sin(s.springT * Math.PI) * 0.5; }
+  }
+  for (const h of hazards) {
+    h.mesh.position.set(h.x + (h.shake ? rand(-h.shake, h.shake) : 0), h.y, 0); h.mesh.visible = !h.dead;
+    if (h.mat) h.mat.color.set(h.hot ? '#ff3b2f' : '#26283d');
+  }
+  for (const e of enemies) {
+    const m = e.mesh, P = e.parts;
+    m.position.set(e.x + e.w / 2, e.y, 0);
+    if (e.dead) { m.scale.set(1.3, Math.max(0.15, 1 - e.squashT * 6), 1.3); m.visible = e.squashT < 0.6; continue; }
+    P.spikes.visible = e.spiky && !e.bat;
+    P.zzz.visible = e.sleep; P.zzz.position.y = 1.1 + Math.sin(t * 2) * 0.08;
+    P.lids.visible = e.sleep && !e.bat; P.eyes.visible = !e.sleep;
+    if (e.bat) P.wings.forEach((w, i) => (w.rotation.z = (i ? -1 : 1) * Math.sin(t * 18) * 0.6));
+    else {
+      const walk = e.sleep ? 0 : Math.sin(t * 12) * 0.08;
+      P.feet[0].position.y = 0.06 + Math.max(0, walk); P.feet[1].position.y = 0.06 + Math.max(0, -walk);
+      P.body.scale.y = 0.78 + (e.sleep ? Math.sin(t * 2) * 0.03 : 0);
+    }
+    P.eyes.position.x = Math.sign(pl.x - e.x) * 0.04;
+  }
+  for (const d of doors) {
+    d.mesh.position.set(d.x + d.w / 2, d.y, 0);
+    if (d.legs.visible) d.legs.children.forEach((l, i) => { l.position.y = Math.abs(Math.sin(t * 20 + i * Math.PI)) * 0.12; });
+    if (d.cardboard) d.pivot.rotation.x = -d.tipped * Math.PI / 2;
+  }
+  for (const cp of checkpoints) if (cp.flag) cp.flag.rotation.y = cp.active ? Math.sin(t * 4) * 0.25 : 0;
+
+  // Lights (night flash, lantern)
+  const T = THEMES[L.theme];
+  flashT = Math.max(0, flashT - dt);
+  if (T.night) {
+    const f = flashT > 0 ? 1 : 0;
+    hemi.intensity = lerp(T.hemi, 2.2, f); dl.intensity = f * 1.4;
+    lantern.intensity = lerp(lantern.intensity, lightCtl.lantern ? 7 : 0, damp(12, dt));
+  }
+
+  // Pip
+  plMesh.position.set(pl.x + PW / 2, pl.y, 0);
+  pl.squash = lerp(pl.squash, 1, damp(12, dt));
+  plBody.scale.set(1 / Math.sqrt(pl.squash), pl.squash, 1);
+  plBody.rotation.z = pl.ground ? 0 : -pl.vx * 0.015;
+  PIP.yaw = lerp(PIP.yaw, pl.face * 0.55, damp(10, dt)); plTurn.rotation.y = PIP.yaw;
+  const speed = Math.abs(pl.vx);
+  PIP.walk += dt * speed * 2.6;
+  const stride = pl.ground ? Math.sin(PIP.walk) * Math.min(speed / SPEED, 1) : 0;
+  PIP.feet[0].position.set(-0.15, 0.05 + Math.max(0, stride) * 0.1, 0.03 + stride * 0.12);
+  PIP.feet[1].position.set(0.15, 0.05 + Math.max(0, -stride) * 0.1, 0.03 - stride * 0.12);
+  const armUp = pl.ground ? 0 : 0.25;
+  PIP.hands[0].position.set(-0.42, 0.36 + armUp - stride * 0.05, stride * 0.1);
+  PIP.hands[1].position.set(0.42, 0.36 + armUp + stride * 0.05, -stride * 0.1);
+  plTurn.position.y = pl.ground ? Math.abs(Math.sin(PIP.walk)) * 0.04 * Math.min(speed / SPEED, 1) : 0;
+  PIP.sproutVel += (-PIP.sproutAng * 60 - PIP.sproutVel * 8) * dt + pl.vx * 0.9 * dt;
+  PIP.sproutAng = clamp(PIP.sproutAng + PIP.sproutVel * dt * 10, -0.9, 0.9);
+  PIP.sprout.rotation.z = PIP.sproutAng;
+  const flow = clamp(speed / SPEED + Math.max(0, -pl.vy) / 20, 0, 1);
+  PIP.tail.rotation.x = lerp(-0.9, -0.05, flow) + Math.sin(t * 14) * 0.08 * flow;
+  PIP.tail2.rotation.x = Math.sin(t * 14 + 1) * 0.3 * flow - (1 - flow) * 0.4;
+  PIP.blinkT -= dt; if (PIP.blinkT < -0.12) PIP.blinkT = rand(1.8, 4);
+  const falling = pl.vy < -9, blink = PIP.blinkT < 0, squint = pl.squash < 0.85;
+  PIP.eyes.forEach((e) => e.scale.set(falling ? 1.2 : 1, blink ? 0.12 : squint ? 0.45 : falling ? 1.25 : 1, 1));
+  PIP.pupils.forEach((p) => { p.position.x = pl.face * 0.035; p.position.y = falling ? 0.04 : clamp(pl.vy * 0.004, -0.035, 0.035); p.scale.setScalar(falling ? 0.7 : 1); });
+
+  // Camera (can get stuck or flipped by traps)
+  const look = clamp(pl.vx * 0.3, -2, 2);
+  camTarget.set(camCtl.stuck ?? pl.x + 2 + look, camCtl.stuck != null ? 4 : Math.max(pl.y + 2, 3.5), camDist);
+  camera.position.x = lerp(camera.position.x, camTarget.x, damp(5, dt));
+  camera.position.y = lerp(camera.position.y, camTarget.y, damp(4, dt));
+  camera.position.z = camDist;
+  if (shake > 0) { camera.position.x += rand(-shake, shake); camera.position.y += rand(-shake, shake); shake = Math.max(0, shake - dt * 1.5); }
+  camera.lookAt(camera.position.x, camera.position.y - 0.8, 0);
+  camRoll = lerp(camRoll, camCtl.flip ? Math.PI : 0, damp(4, dt));
+  if (camRoll > 0.001) camera.rotateZ(camRoll);
+  camera.updateMatrixWorld();
+
+  // Off-screen marker for when the camera wanders off
+  const arrow = $('offArrow');
+  if (camCtl.stuck != null && !dead) {
+    projV.set(pl.x + PW / 2, pl.y + 0.5, 0).project(camera);
+    if (projV.x > 1 || projV.x < -1) { arrow.hidden = false; arrow.style.top = `${clamp((1 - projV.y) / 2, 0.1, 0.9) * 100}%`; }
+    else arrow.hidden = true;
+  } else arrow.hidden = true;
+}
+
+/* ============ HUD ============ */
+const cache = {};
+const setText = (id, v) => { if (cache[id] !== v) { cache[id] = v; $(id).textContent = v; } };
+function updateHUD(dt) {
+  setText('deaths', String(deaths));
+  setText('time', fmtTime(playTime));
+  const p = `${clamp(pl.x / L.end, 0, 1) * 100}%`; if (cache.prog !== p) { cache.prog = p; $('prog').style.width = p; }
+  const rev = $('rev');
+  if (revUI && !dead) {
+    rev.hidden = false; setText('revText', revUI.text); rev.classList.toggle('flip', revUI.flip);
+    $('revBarWrap').hidden = revUI.frac == null;
+    if (revUI.frac != null) $('revBar').style.width = `${revUI.frac * 100}%`;
+  } else rev.hidden = true;
+  $('banner').hidden = !ui.banner || dead; if (ui.banner) setText('banner', ui.banner);
+  const lo = $('loadOv');
+  if (ui.loading) { lo.hidden = false; lo.style.opacity = ui.loading.op; setText('lTitle', ui.loading.title); setText('lTip', ui.loading.tip); $('lBar').style.width = `${ui.loading.frac * 100}%`; } else lo.hidden = true;
+  const fp = $('fakePause');
+  if (ui.fakePause && !dead) { fp.hidden = false; fp.style.background = `rgba(38,40,61,${ui.fakePause.op})`; setText('fpSub', ui.fakePause.sub); } else fp.hidden = true;
+  const fw = $('fakeWin');
+  if (ui.fakeWin) { fw.hidden = false; setText('fwTitle', ui.fakeWin.title); setText('fwSub', ui.fakeWin.sub); } else fw.hidden = true;
+  if (patchTimer > 0) { patchTimer -= dt; if (patchTimer <= 0) $('patch').hidden = true; }
+}
+function hideFakes() { for (const id of ['loadOv', 'fakePause', 'fakeWin', 'banner', 'rev', 'offArrow']) $(id).hidden = true; }
+function syncMusic() {
+  const want = state === 'play' && !dead && !won && !ui.loading && !ui.fakePause && !ui.fakeWin;
+  if (want && !music.playing) musicStart(); else if (!want && music.playing) musicStop();
+}
+
+/* ============ Menus ============ */
+function renderSelect() {
+  $('levels').innerHTML = LEVELS.map((lv, i) => {
+    const locked = i >= progress.unlocked, b = progress.best[lv.id];
+    const sub = locked ? 'Locked. Beat the one before it.' : b ? `Best: ${b.deaths} death${b.deaths === 1 ? '' : 's'} · ${fmtTime(b.time)}` : 'Not beaten yet';
+    return `<button class="lvtile${b ? ' done' : ''}" data-i="${i}" ${locked ? 'disabled' : ''}><span class="lid">${lv.id}</span><span class="lname">${lv.title}</span><span class="lbest">${sub}</span></button>`;
+  }).join('');
+  $('selNote').textContent = progress.coward ? 'Coward mode is on. The Guide has told everyone.' : 'Beat a level to unlock the next one.';
+  $('coward').hidden = progress.unlocked >= LEVELS.length;
+}
+function openSelect() {
+  musicStop(); state = 'menu'; won = false;
+  for (const id of ['title', 'win', 'paused']) $(id).hidden = true;
+  $('hud').hidden = true; $('touch').hidden = true; hideFakes(); clearNarrator();
+  renderSelect(); $('select').hidden = false;
+  $('levels').querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+}
+$('levels').addEventListener('click', (e) => { const b = e.target.closest('button[data-i]'); if (b && !b.disabled) playLevel(+b.dataset.i); });
+$('coward').addEventListener('click', () => { progress.unlocked = LEVELS.length; progress.coward = true; saveProgress(); renderSelect(); sfx.nope(); });
+$('selBack').addEventListener('click', () => { $('select').hidden = true; $('title').hidden = false; state = 'title'; });
+$('start').addEventListener('click', () => { ensureAudio(); if (progress.unlocked > 1) openSelect(); else playLevel(0); });
+$('toSelect').addEventListener('click', () => { ensureAudio(); openSelect(); });
+$('toSelect').hidden = progress.unlocked <= 1;
+$('quit').addEventListener('click', openSelect);
+$('wSelect').addEventListener('click', openSelect);
+
+/* ============ Input ============ */
+function pressJump() { if (state === 'play') { pl.buffer = 0.12; ensureAudio(); } }
+function releaseJump() { if (pl.vy > 5) pl.vy = 5; }
+addEventListener('keydown', (e) => {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  const was = keys[e.code]; keys[e.code] = true;
+  if (was) return;
+  if (state === 'play') {
+    if (isJumpKey(e.code)) pressJump();
+    else if (remap.jumpDown && JUMP_KEYS.includes(e.code)) sfx.nope();
+    if (e.code === 'KeyR' && !dead && !pl.frozen) die('retry', trapAt(pl.x + PW / 2));
+    if (e.code === 'KeyP' || e.code === 'Escape') pause();
+  } else if (state === 'paused' && (e.code === 'KeyP' || e.code === 'Escape')) resume();
+  if (e.code === 'KeyM') { muted = !muted; store.set('easy.muted', muted); }
+  if (e.code === 'KeyN') toggleMusic();
+});
+addEventListener('keyup', (e) => { keys[e.code] = false; if (isJumpKey(e.code)) releaseJump(); });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; pause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+function bindTouch(id, on, off) {
+  const el = $(id);
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); on(); });
+  const end = () => off(); el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+}
+if (coarse) {
+  document.body.classList.add('touch');
+  bindTouch('tLeft', () => (touch.l = true), () => (touch.l = false));
+  bindTouch('tRight', () => (touch.r = true), () => (touch.r = false));
+  bindTouch('tJump', () => { touch.j = true; pressJump(); }, () => { touch.j = false; releaseJump(); });
+}
+function pause() { if (state !== 'play') return; state = 'paused'; $('paused').hidden = false; $('resume').focus({ preventScroll: true }); }
+function resume() { if (state !== 'paused') return; state = 'play'; $('paused').hidden = true; clock.getDelta(); }
+$('resume').addEventListener('click', resume);
+$('musicBtn').addEventListener('click', (e) => { e.currentTarget.blur(); ensureAudio(); toggleMusic(); });
+$('musicBtn').textContent = music.on ? '♪ Music on' : '♪ Music off';
+$('musicBtn').setAttribute('aria-pressed', String(music.on));
+
+// The "Next level" button is shy on 1-1.
+function dodge() {
+  if (dodges >= 3) return;
+  dodges++;
+  const b = $('nextBtn'), wrap = $('dodgeWrap');
+  const maxX = Math.max(0, wrap.clientWidth - b.offsetWidth - 10);
+  b.style.left = `${rand(-b.offsetLeft, maxX - b.offsetLeft)}px`;
+  b.style.top = `${rand(-30, 20)}px`;
+  sfx.boing();
+  say(['Nope.', 'Too slow!', 'Fine. FINE. You can click it now.'][dodges - 1], 2);
+}
+$('nextBtn').addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') dodge(); });
+$('nextBtn').addEventListener('click', () => {
+  if (dodges < 3) { dodge(); return; }
+  playLevel(L.last ? 0 : levelIdx + 1);
+});
+$('copy').addEventListener('click', () => {
+  const text = shameText();
+  const ok = () => { $('copy').textContent = 'Copied'; setTimeout(() => ($('copy').textContent = 'Copy my score'), 1500); };
+  const fail = () => { const r = document.createRange(); r.selectNodeContents($('shame')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent = 'Selected, copy it'; };
+  try { navigator.clipboard.writeText(text).then(ok, fail); } catch { fail(); }
+});
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); fitCamera(); });
+
+/* ============ Loop ============ */
+loadLevel(0);
+const clock = new THREE.Clock();
+const STEP = 1 / 120;
+let acc = 0;
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), 0.1);
+  if (state === 'play') {
+    acc += dt;
+    while (acc >= STEP) { tick(STEP); acc -= STEP; }
+    if (!dead) playTime += dt;
+    updateHUD(dt);
+  } else if (state === 'title') pl.squash = 1 + Math.sin(time * 3) * 0.03;
+  if (state !== 'paused') { time += dt; updateNarrator(dt); updateParticles(dt); }
+  syncMusic();
+  render(state === 'paused' ? 0 : dt, time);
+  renderer.render(scene, camera);
+}
+frame();
+</script>
