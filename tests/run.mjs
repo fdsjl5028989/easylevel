@@ -124,34 +124,34 @@ for (const lv of LEVELS) {
 console.log('\nDifficulty');
 // How long is the window to start running through a crusher tunnel? Sweeps a start delay (counted from
 // a cue: `approach` gets Pip into position and waits for it) over a whole cycle and counts the delays that work.
-function tunnelWindow(levelId, trapId, period, approach, endX) {
+function tunnelWindow(levelId, trapId, period, approach, through) {
   const li = idxOf(levelId); let good = 0; const step = 0.025;
   for (let d = 0; d < period; d += step) {
     fresh(li); game.goto(trapId);
     const b = makeBot(h), T = b.trap(trapId);
-    try { run(h, (function* () { yield* approach(b, T); yield* b.hold(0, d); yield* b.go(1, () => b.pl.x > endX); })()); good++; } catch {}
+    try { run(h, (function* () { yield* approach(b, T); yield* b.hold(0, d); yield* through(b, T); })()); good++; } catch {}
   }
   return good * step;
 }
 const TUNNELS = [
-  // [level, trap, name, cycle (s), get into position and wait for the cue, where the run ends]
-  ['1-1', 'tunnel', '1-1 Tunnel', 2.4, function* (b, T) {
-    yield* b.go(1, () => b.pl.x > 144.3); yield* b.wait(() => T.segs[0].y < 0.01); yield* b.wait(() => T.segs[0].y > 0.05);
-  }, 161],
+  // [level, trap, name, cycle (s), get into position and wait for the cue, run through]
+  ['1-1', 'tunnel', '1-1 Tunnel v3', 2.6, function* (b, T) {
+    yield* b.go(1, () => b.pl.x > 144.3); yield* b.wait(() => T.segs[0].y < 1); yield* b.wait(() => T.segs[0].y >= 2);
+  }, function* (b) { yield* b.go(1, () => b.pl.x > 151.1); yield* b.jump(1, 0.05); yield* b.go(1, () => b.pl.x > 161); }],
   ['1-3', 'lamp', '1-3 Tunnel v3, first half', 2.2, function* (b, T) {
     yield* b.go(1, () => b.pl.x > 55.2); yield* b.wait(() => T.segs[0].y < 0.01); yield* b.wait(() => T.segs[0].y > 0.05);
-  }, 63.6],
+  }, function* (b) { yield* b.go(1, () => b.pl.x > 63.6); }],
   ['1-3', 'lamp', '1-3 Tunnel v3, second half', 1.2, function* (b, T) {
     const s0 = T.segs[0], s3 = T.segs[3];
     yield* b.go(1, () => b.pl.x > 55.2); yield* b.wait(() => s0.y < 0.01); yield* b.wait(() => s0.y > 0.05);
     yield* b.go(1, () => b.pl.x > 63.6); yield* b.wait(() => Math.abs(b.pl.vx) < 0.1);
     yield* b.wait(() => s3.y > 1.9); yield* b.wait(() => s3.y < 0.5);
-  }, 72.6],
+  }, function* (b) { yield* b.go(1, () => b.pl.x > 72.6); }],
 ];
-for (const [lvId, id, name, period, approach, endX] of TUNNELS) {
+for (const [lvId, id, name, period, approach, through] of TUNNELS) {
   if (!want({ id: lvId }, id)) continue;
   check(`${name}: window to start running`, () => {
-    const w = tunnelWindow(lvId, id, period, approach, endX);
+    const w = tunnelWindow(lvId, id, period, approach, through);
     assert(w > 0.15, `only ${w.toFixed(2)} s per ${period} s cycle`);
     report.push([`${name}: safe window to start running`, `${w.toFixed(2)} s out of every ${period} s`]);
     return `${w.toFixed(2)} s of every ${period} s`;

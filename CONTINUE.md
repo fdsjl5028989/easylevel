@@ -41,7 +41,7 @@ version of a trap stays fixed, so the player's knowledge eventually sticks and t
   retune a trap and its route breaks, either the route needs new timings or the trap became impossible.
 - The game exposes `window.easy` (state getters, `playLevel`, `goto(trapId, version)`, `setAll`, `step(n)`)
   for the tests; it's harmless for players.
-- Measured (perfect play): 1-1 Tunnel start window 1.65 s of every 2.4 s; 1-3 Dark Mode tunnel v3 0.65 s of every 2.2 s
+- Measured (perfect play): 1-1 Tunnel v3 start window 0.8 s of every 2.6 s (v2: 1.15 s of every 2.8 s); 1-3 Dark Mode tunnel v3 0.65 s of every 2.2 s
   (first half) and 0.48 s of every 1.2 s (second half); 1-3 chase v3 closest approach 4.45 tiles (about 0.8 s of slack).
 - 1-3's tuning numbers are constants just above `LEVEL_3` (flash, tunnel, mushrooms, bridge, statues, beam, Guide).
   To try values without editing the file, `loadGame({ patch })` in `tests/harness.mjs` can rewrite the source before
@@ -127,8 +127,12 @@ version of a trap stays fixed, so the player's knowledge eventually sticks and t
 **1-1 Easy Level** (day): Gap (floor drops → fake platform → real platform that falls), Spike
 (jumps → chases → copies your jump and glows red), Blob (hedgehog → jumps → asleep, so stomp it), Stairs (invisible
 block → fake edge → cracked tiles are the safe ones), Spring (launches you into spikes → hold jump), Platforms
-(controls reversed → announced but not really reversed → flip every 1.6 s), Tunnel (crush → wave), Door (runs away → painting on a
-trapdoor → real, with a cardboard decoy). Checkpoint 1 lies once.
+(controls reversed → announced but not really reversed → flip every 1.6 s), Tunnel (no tunnel in sight: the Guide says it's closed for repairs, and
+the ceiling drops from above the top of the screen, y 30, even for tall phone screens → painted crushers in a double-tap wave (`TUNNEL_V2`: each one lifts partway, slams again, then lifts fully, so
+going on the first lift gets you; 1.15 s window) → a quicker double-tap wave (`TUNNEL_V3`) plus a `TUNNEL_HOLE` 1.9-tile hole in the
+floor under the ceiling, so a small hop; 0.8 s start window), Door (runs away → painting on a trapdoor → the real door is
+locked; the key is on the top ledge by the cardboard decoy, so climb up and come back). Checkpoint 1 lies once.
+The Tunnel trap builds the floor from 137 to 166 itself (one seamless piece in v1/v2, so nothing hints at the hole).
 
 **1-2 Loading…** (dusk, a fast glitchy song) turns the game's own screens and settings against you. Every trap has 3
 versions except Early Exit (15 forced deaths): Loading Screen (spike behind an opaque loader → see-through loader, spike

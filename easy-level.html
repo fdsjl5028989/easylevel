@@ -663,6 +663,8 @@ function resetTickControls() {
 }
 
 /* ============ LEVEL 1-1: Easy Level ============ */
+// 1-1 Tunnel: v2 and v3 crusher waves [period, lag] (both double-tap), and the width of the v3 hole in the floor.
+const TUNNEL_V2 = [2.8, 0.35], TUNNEL_V3 = [2.6, 0.3], TUNNEL_HOLE = 1.9;
 const LEVEL_1 = {
   id: '1-1', title: 'Easy Level', theme: 'day', song: 'day', end: 186, dodgy: true, trollCp: 1,
   intro: "Hi! I'm your Guide. This is Easy Level. Help Pip walk right, jump over things, reach the door. That's the whole game!",
@@ -675,7 +677,7 @@ const LEVEL_1 = {
     addSolid(75.5, -8, 24.5, 10.5, 'ground');
     ground(102, 112); wall(112, 113, 7); ground(113, 122);
     brick(124.5, -0.5, 1.5); brick(128.5, 0, 1.5); brick(132.5, -0.5, 1.5);
-    ground(137, 166); wall(186, 189, 12);
+    wall(186, 189, 12);   // the floor from 137 to 166 is built by the Tunnel trap
     signMesh(['EASY LEVEL', 'door this way →'], 3, 0);
   },
   extras(T) {
@@ -790,33 +792,43 @@ const LEVEL_1 = {
       },
     },
     {
-      id: 'tunnel', name: 'The Tunnel', zone: [143, 160], max: 1, sayAt: 143,
-      approach: ['A cosy tunnel. Take your time in there.', 'The ceiling breathes now. Go when it goes up. Follow the wave.'],
-      deaths: ['It was a crushing tunnel. A crunnel.', 'Timing! Wait for the first block to lift, then run.'],
-      patch: [null, 'Tunnel now crushes on a schedule. Very civilised.'],
-      hint: "Hint: start running the moment the first block finishes lifting. Don't stop.",
-      build(T) { T.segs = [0, 1, 2, 3].map((i) => addSolid(146 + i * 3, 2, 3, 10, 'crusher', { dyn: true, trap: T, crush: true })); T.fired = false; T.t = 0; },
+      id: 'tunnel', name: 'The Tunnel', zone: [143, 160], max: 2, sayAt: 143,
+      approach: ["The tunnel's closed for repairs. Just walk along the path. Lovely and open.", 'The ceiling breathes now. Go when it goes up. Follow the wave.', "Same ceiling. I've made a little hole in the floor. Mind your head."],
+      deaths: ['The tunnel was up there. It came down to say hello. A crunnel!', 'It lifts twice. The first lift is a fib. Like most things I say.', "The hole's in the floor. The ceiling's on your head. Hop, don't jump."],
+      patch: [null, 'Tunnel reopened, at eye level. Now crushes on a schedule, with a little fake-out. Painted yellow so you can see it coming.', 'Added a hole in the floor, to keep things fresh. The ceiling stays where it is, so small hops only.'],
+      hint: "Hint: the first lift is fake. Go when the first block lifts all the way, don't stop, and tap jump over the hole.",
+      build(T, s) {
+        // v1 has no visible tunnel: the ceiling waits above the top of the screen (even on a tall phone screen). From v2 on it's in view, painted like a crusher.
+        T.segs = [0, 1, 2, 3].map((i) => addSolid(146 + i * 3, s === 0 ? 30 : 2, 3, 10, s === 0 ? 'ground' : 'crusher', { dyn: true, trap: T, crush: true }));
+        // One seamless floor in v1/v2, so nothing hints at the v3 hole.
+        if (s < 2) addSolid(137, -8, 29, 8, 'ground', { dyn: true, trap: T });
+        else { addSolid(137, -8, 15, 8, 'ground', { dyn: true, trap: T }); addSolid(152 + TUNNEL_HOLE, -8, 14 - TUNNEL_HOLE, 8, 'ground', { dyn: true, trap: T }); }
+        T.fired = false; T.t = 0;
+      },
       update(T, dt, s) {
         if (s === 0) {
           if (!T.fired && pl.x > 150.5) T.fired = true;
-          if (T.fired) for (const g of T.segs) { const ny = Math.max(0, g.y - 30 * dt); if (g.y > 0 && ny === 0) sfx.crush(); move(g, 0, ny - g.y); }
-        } else waveCrush(T, dt);
+          if (T.fired) for (const g of T.segs) { const ny = Math.max(0, g.y - 80 * dt); if (g.y > 0 && ny === 0) sfx.crush(); move(g, 0, ny - g.y); }
+        } else if (s === 1) waveCrush(T, dt, ...TUNNEL_V2, true);
+        else waveCrush(T, dt, ...TUNNEL_V3, true);
       },
     },
     {
       id: 'door', name: 'The Door', zone: [160, 186], max: 2, sayAt: 160,
-      approach: ["There's the exit! Go on, you've earned it.", "The door won't run this time. Go on in!", "That door's fake. The real exit is up there. Climb!"],
+      approach: ["There's the exit! Go on, you've earned it.", "The door won't run this time. Go on in!", "It's a real door this time. It's just locked. The key's somewhere. Up, probably."],
       deaths: ['Doors are skittish. Should have mentioned.', 'That was a painting of a door, on a trapdoor. Art!', 'How did you even die here?'],
-      patch: [null, 'Door no longer runs. Door is now a painting.', 'Door is a door. Added a second door, for fun.'],
-      hint: 'Hint: the obvious door. Just the obvious door.',
+      patch: [null, 'Door no longer runs. Door is now a painting.', 'Door is a real door again. Now locked, for security. Key provided. Somewhere. Added a second door, for fun.'],
+      hint: 'Hint: climb the steps, grab the key by the cardboard door, then come back down to the first door.',
       build(T, s) {
         T.td = addSolid(166, -8, 4, 8, 'ground', { dyn: true, trap: T });
         T.g8 = addSolid(170, -8, 16, 8, 'ground', { dyn: true, trap: T });
         T.door = addDoor(167.4, 0, { trap: T, real: s === 2 });
         T.run = false; T.collapse = false; T.trapdoor = false; T.fellSaid = false; T.fake = null;
+        T.key = null; T.hasKey = false; T.lockSaid = false;
         if (s === 2) {
           brick(171, 1, 1, 1, { dyn: true, trap: T }); brick(173.5, 3, 1, 1, { dyn: true, trap: T }); brick(176, 5, 4, 1, { dyn: true, trap: T });
           T.fake = addDoor(177.4, 6, { trap: T, cardboard: true });
+          T.key = makeKey(); T.key.scale.setScalar(1.7); T.key.position.set(179.4, 6.6, 0.2); dynGroup.add(T.key);
         }
       },
       update(T, dt, s) {
@@ -829,20 +841,41 @@ const LEVEL_1 = {
         }
         if (T.trapdoor) { fall(T.td, dt); d.y = Math.min(d.y, T.td.y + T.td.h); }
         if (T.fake && T.fake.tipped > 0) T.fake.tipped = Math.min(1, T.fake.tipped + dt * 2.5);
+        if (T.key && !T.hasKey) {
+          T.key.rotation.y += dt * 3; T.key.position.y = 6.6 + Math.sin(time * 3) * 0.1;
+          if (Math.abs(pl.x + PW / 2 - 179.4) < 0.7 && Math.abs(pl.y + PH / 2 - 6.6) < 0.9) {
+            T.hasKey = true; T.key.visible = false; sfx.flag(); burst(179.4, 6.6, 18, ['#ffcc33', '#ffffff'], 4, 0.6, 1);
+            say('You found the key! Now all the way back down. Sorry.', 3);
+          }
+        }
       },
       touchDoor(T, d, s) {
         if (d.cardboard) { if (!d.tipped) { d.tipped = 0.01; sfx.bonk(); say("Oh, that one's cardboard. The real exit is the first door. It always was.", 3); } return; }
-        if (d.real) { win(); return; }
+        if (d.real) {
+          if (s === 2 && !T.hasKey) { if (!T.lockSaid) { T.lockSaid = true; sfx.nope(); say("It's locked. The key's up there. Obviously.", 3); } return; }
+          win(); return;
+        }
         if (s === 1 && !T.trapdoor) { T.trapdoor = true; sfx.rumble(); }
       },
     },
   ],
 };
-function waveCrush(T, dt, period = 2.4, lag = 0.35) { T.t += dt; crushWave(T.segs, T.t, period, lag); }
-function crushWave(segs, t, period, lag) {
+function makeKey() {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.06, 8, 16), MAT.gold); ring.position.x = -0.18; g.add(ring);
+  boxWithEdges(0.4, 0.08, 0.08, MAT.gold, g, 0.14, 0, 0);
+  boxWithEdges(0.06, 0.14, 0.08, MAT.gold, g, 0.28, -0.09, 0);
+  return g;
+}
+function waveCrush(T, dt, period = 2.4, lag = 0.35, double = false) { T.t += dt; crushWave(T.segs, T.t, period, lag, double); }
+// Each crusher slams, rests, and lifts again. A `double` crusher fakes it: it lifts only partway
+// (enough to look open), slams a second time, and only then lifts all the way.
+function crushWave(segs, t, period, lag, double = false) {
   segs.forEach((g, i) => {
     const ph = (((t - i * lag) % period) + period) % period;
-    const y = ph < 0.1 ? lerp(2, 0, ph / 0.1) : ph < 0.3 ? 0 : ph < 0.6 ? lerp(0, 2, (ph - 0.3) / 0.3) : 2;
+    const y = !double ? (ph < 0.1 ? lerp(2, 0, ph / 0.1) : ph < 0.3 ? 0 : ph < 0.6 ? lerp(0, 2, (ph - 0.3) / 0.3) : 2)
+      : ph < 0.1 ? lerp(2, 0, ph / 0.1) : ph < 0.25 ? 0 : ph < 0.45 ? lerp(0, 1.3, (ph - 0.25) / 0.2) : ph < 0.95 ? 1.3
+      : ph < 1.02 ? lerp(1.3, 0, (ph - 0.95) / 0.07) : ph < 1.15 ? 0 : ph < 1.45 ? lerp(0, 2, (ph - 1.15) / 0.3) : 2;
     if (g.y > 0.01 && y <= 0.01 && Math.abs(pl.x - g.x) < 14) sfx.crush();
     move(g, 0, y - g.y);
   });

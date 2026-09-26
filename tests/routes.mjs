@@ -70,16 +70,29 @@ export const ROUTES = {
       }
       yield* b.go(() => key(1), () => b.pl.x > 138);
     },
-    // Wait for the first crusher to come down and go back up, then run straight through.
+    // Wait for the first crusher to come down and go all the way back up (its first, partial lift is a
+    // fake-out), then run straight through, tapping jump just before the hole in the floor.
     *tunnel(b) {
       const s0 = b.trap('tunnel').segs[0];
       yield* b.go(1, () => b.pl.x > 144.3);
       yield* b.wait(() => s0.y < 1);
       yield* b.wait(() => s0.y >= 2);
+      yield* b.go(1, () => b.pl.x > 151.1);
+      yield* b.jump(1, 0.05);
       yield* b.go(1, () => b.pl.x > 161);
     },
-    // The obvious door is real now.
-    *door(b) { yield* b.go(1, () => b.game.won); },
+    // The real door is locked in v3. Climb the steps, grab the key by the cardboard door at the top,
+    // then drop back down and walk into the first door.
+    *door(b) {
+      const T = b.trap('door');
+      yield* b.go(1, () => b.pl.x > 169.9);
+      yield* b.jumpTo(171.5, 0.3);                      // step 1 (top 2)
+      yield* b.jumpTo(174, 0.35);                       // step 2 (top 4)
+      yield* b.jumpTo(177, 0.4);                        // the ledge (top 6)
+      yield* b.go(1, () => T.hasKey, 3, 'the key');
+      yield* b.go(-1, () => b.pl.x < 175, 3, 'off the ledge');
+      yield* b.go(-1, () => b.game.won, 4, 'back to the first door');
+    },
   },
 
   '1-2': {
