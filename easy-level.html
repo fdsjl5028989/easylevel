@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Easy Level</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -134,6 +135,21 @@
   .lbar { height: 16px; border: 3px solid #fff; border-radius: 10px; overflow: hidden; }
   .lbar i { display: block; height: 100%; width: 0; background: var(--sun); }
   .ltip { font-size: 16px; color: #cfd3ea; }
+
+  /* Dev tools (?dev) */
+  .dev { position: fixed; left: 14px; top: calc(var(--st) + 96px); z-index: 30; width: 260px; max-height: calc(100% - 240px); overflow-y: auto; padding: 10px 12px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+  .dev .dhead { display: flex; justify-content: space-between; align-items: baseline; }
+  .dev .dhead b { color: var(--lilac); letter-spacing: .14em; }
+  .dev .dhead span, .dev .dsub { color: var(--muted); font-size: 11px; }
+  .dev select { width: 100%; font: 600 13px var(--ui); color: var(--ink); background: var(--paper); border: 2px solid var(--ink); border-radius: 8px; padding: 2px 4px; }
+  .dev .drow { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .dev .drow > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dev .drow > span:last-child { display: flex; gap: 3px; flex: none; }
+  .dev .dtog { display: flex; flex-wrap: wrap; gap: 4px; }
+  .dev button { font: 600 12px var(--ui); color: var(--ink); background: var(--paper); border: 2px solid var(--ink); border-radius: 6px; padding: 1px 6px; cursor: pointer; }
+  .dev button.on { background: var(--sun); }
+  .dev pre { margin: 0; font: 500 11px/1.45 var(--mono); white-space: pre; }
+  #devBoxes { position: fixed; inset: 0; z-index: 9; pointer-events: none; }
 
   @media (prefers-reduced-motion: reduce) {
     .patch { animation: none; } .face i { animation: none; } .btn { transition: none; }
@@ -278,7 +294,7 @@ const skyTex = (top, bottom) => canvasTex(2, 256, (g) => { const gr = g.createLi
 const THEMES = {
   day:   { sky: skyTex('#9fdcff', '#e9f8ff'), hemi: 2.0, dl: 1.6, line: '#26283d', hill: ['#a6e3cf', '#8fd6c0'], leaf: '#7fd0b0', night: false },
   dusk:  { sky: skyTex('#b9b5ff', '#ffd9d0'), hemi: 1.9, dl: 1.4, line: '#26283d', hill: ['#c7b8f0', '#b2a4e6'], leaf: '#a693e0', night: false },
-  night: { sky: skyTex('#0b0f26', '#010207'), hemi: 0.03, dl: 0.0, line: '#05060e', hill: ['#0c1026', '#0a0d1f'], leaf: '#0f1330', night: true },
+  night: { sky: skyTex('#03040a', '#000000'), hemi: 0.012, dl: 0.0, line: '#05060e', hill: ['#040509', '#030407'], leaf: '#05060c', night: true },
 };
 const crackTex = canvasTex(128, 128, (g, w, h) => {
   g.fillStyle = '#c8b27a'; g.fillRect(0, 0, w, h);
@@ -299,6 +315,8 @@ const MAT = {
   gold: lam('#ffcc33'), pole: lam('#e6e6e6'), flagOff: lam('#d0d4e0'), coil: lam('#9aa0b5'),
   cardboard: lam('#c9a36b'), cloud: lam('#ffffff'), trunk: lam('#b58a5a'), player: lam('#ff6b5a'),
   glowEye: new THREE.MeshBasicMaterial({ color: '#fff27a' }),
+  light: new THREE.MeshBasicMaterial({ color: '#ffe7a3', transparent: true, opacity: 0.7 }),
+  shadow: new THREE.MeshBasicMaterial({ color: '#010103' }),   // unlit black: invisible against the night sky
 };
 const LINE = new THREE.LineBasicMaterial({ color: '#26283d' });
 function boxWithEdges(w, h, d, mat, parent, x = 0, y = 0, z = 0) {
@@ -321,6 +339,8 @@ function makeBlockMesh(w, h, style) {
     boxWithEdges(w, 0.3, 1.7, style === 'ground' ? MAT.grass : MAT.crackCap, g, 0, h / 2 - 0.15);
   } else if (style === 'crusher' || style === 'crusherGlow') {
     boxWithEdges(w, h, 1.3, style === 'crusher' ? MAT.crusher : MAT.crusherGlow, g);
+  } else if (style === 'light') {
+    boxWithEdges(w, h, 1, MAT.light, g);
   } else if (style === 'spring') {
     boxWithEdges(1, 0.14, 1, MAT.ink, g, 0, -h / 2 + 0.07);
     g.userData.coil = boxWithEdges(0.4, 0.34, 0.4, MAT.coil, g, 0, -h / 2 + 0.3);
@@ -345,7 +365,7 @@ const wall = (x0, x1, top) => addSolid(x0, -8, x1 - x0, top + 8, 'ground');
 const brick = (x, y, w = 1, h = 1, o = {}) => addSolid(x, y, w, h, 'brick', o);
 
 function addSpike(x, y, w, dir, o = {}) {
-  const h = 0.75, e = { kind: 'spike', x, y, w, h, dir, vx: 0, vy: 0, trap: o.trap || null, dyn: !!o.dyn, dead: false, hot: false, shake: 0, harmless: false, prop: !!o.prop };
+  const h = 0.75, e = { kind: 'spike', x, y, w, h, dir, vx: 0, vy: 0, trap: o.trap || null, dyn: !!o.dyn, dead: false, hot: false, shake: 0, harmless: false, prop: !!o.prop, hidden: !!o.hidden };
   const g = new THREE.Group();
   if (o.ownMat) e.mat = MAT.spike.clone();
   for (let i = 0; i < w; i++) {
@@ -363,7 +383,8 @@ function addEnemy(x, y, o = {}) {
     sway: o.sway || 0, cx: x, amp: o.amp || 0 };
   const g = new THREE.Group();
   const eyeWhite = o.glow ? MAT.glowEye : MAT.white;
-  const body = new THREE.Mesh(new THREE.SphereGeometry(bat ? 0.3 : 0.5, 16, 10), bat ? MAT.ink : MAT.enemy);
+  const hide = bat && o.sleep;   // a sleeping bat is pitch black, even in your lantern light
+  const body = new THREE.Mesh(new THREE.SphereGeometry(bat ? 0.3 : 0.5, 16, 10), hide ? MAT.shadow : bat ? MAT.ink : MAT.enemy);
   body.scale.set(1, bat ? 0.9 : 0.78, 0.9); body.position.y = bat ? 0.25 : 0.4; g.add(body);
   const eyes = new THREE.Group(); g.add(eyes);
   for (const sx of [-0.15, 0.15]) {
@@ -374,7 +395,7 @@ function addEnemy(x, y, o = {}) {
   for (const sx of [-0.17, 0.17]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.05, 0.05), MAT.ink); l.position.set(sx, 0.5, 0.52); lids.add(l); }
   const feet = [], wings = [];
   if (bat) {
-    for (const s of [-1, 1]) { const wg = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.3), MAT.ink); wg.position.set(s * 0.4, 0.3, 0); g.add(wg); wings.push(wg); }
+    for (const s of [-1, 1]) { const wg = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.3), hide ? MAT.shadow : MAT.ink); wg.position.set(s * 0.4, 0.3, 0); g.add(wg); wings.push(wg); }
   } else {
     for (const sx of [-0.22, 0.22]) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.3), MAT.enemyDark); f.position.set(sx, 0.06, 0); g.add(f); feet.push(f); }
   }
@@ -597,6 +618,7 @@ const PIP = { eyeWhites: [] };
   PIP.sproutAng = 0; PIP.sproutVel = 0; PIP.blinkT = 2; PIP.walk = 0; PIP.yaw = 0.5;
 }
 // Pip's little lantern, only lit at night.
+const LANTERN = 5;
 const lantern = new THREE.PointLight('#ffd9a0', 0, 9, 1.2); lantern.position.set(0.3, 0.9, 1.2); plMesh.add(lantern);
 const eyeGlowMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
 
@@ -630,13 +652,13 @@ function updateParticles(dt) {
 /* ============ Per-tick control state set by traps ============ */
 let invert = false, revUI = null;
 const remap = { jumpDown: false, swap: false };
-const camCtl = { stuck: null, flip: false };
+const camCtl = { stuck: null, flip: false, spin: false };
 const lightCtl = { lantern: true };
 let flashT = 0;
 const ui = { loading: null, fakePause: null, fakeWin: null, banner: null };
 function resetTickControls() {
   invert = false; revUI = null; remap.jumpDown = false; remap.swap = false;
-  camCtl.stuck = null; camCtl.flip = false; lightCtl.lantern = true;
+  camCtl.stuck = null; camCtl.flip = false; camCtl.spin = false; lightCtl.lantern = true;
   ui.loading = ui.fakePause = ui.fakeWin = ui.banner = null;
 }
 
@@ -816,10 +838,10 @@ const LEVEL_1 = {
     },
   ],
 };
-function waveCrush(T, dt, period = 2.4, lag = 0.35) {
-  T.t += dt;
-  T.segs.forEach((g, i) => {
-    const ph = (((T.t - i * lag) % period) + period) % period;
+function waveCrush(T, dt, period = 2.4, lag = 0.35) { T.t += dt; crushWave(T.segs, T.t, period, lag); }
+function crushWave(segs, t, period, lag) {
+  segs.forEach((g, i) => {
+    const ph = (((t - i * lag) % period) + period) % period;
     const y = ph < 0.1 ? lerp(2, 0, ph / 0.1) : ph < 0.3 ? 0 : ph < 0.6 ? lerp(0, 2, (ph - 0.3) / 0.3) : 2;
     if (g.y > 0.01 && y <= 0.01 && Math.abs(pl.x - g.x) < 14) sfx.crush();
     move(g, 0, y - g.y);
@@ -827,6 +849,10 @@ function waveCrush(T, dt, period = 2.4, lag = 0.35) {
 }
 
 /* ============ LEVEL 1-2: Loading… (the game itself lies) ============ */
+// Height of the Prop Spike's ceiling spikes (their bottom edge) in v1/v2 and in v3.
+const PROP_CEIL = 2.5, PROP_CEIL_V3 = 2.2;
+// How fast the Gap (Remastered) lift sinks under you, in tiles per second, in v2 and in v3.
+const GAP_SINK = 1.5, GAP_SINK_V3 = 0.8;
 const LEVEL_2 = {
   id: '1-2', title: 'Loading…', theme: 'dusk', song: 'dusk', end: 130,
   intro: "Welcome to 1-2! It's still loading. Tip: stand still while it loads.",
@@ -840,34 +866,45 @@ const LEVEL_2 = {
   },
   traps: () => [
     {
-      id: 'loading', name: 'The Loading Screen', zone: [-5, 15], max: 1, sayAt: 99,
-      approach: [null, null],
-      deaths: ['You can move during loading screens. Everyone knows that.', 'Behind you! Oh. Too late.'],
-      patch: [null, 'Loading screen now see-through. Spike now comes from the other side. Tip unchanged.'],
-      hint: 'Hint: face left and jump when it gets close.',
+      id: 'loading', name: 'The Loading Screen', zone: [-5, 15], max: 2, sayAt: 99,
+      approach: [null, null, null],
+      deaths: ['You can move during loading screens. Everyone knows that.', 'Behind you! Oh. Too late.', 'It was a two-part loading screen. Very modern.'],
+      patch: [null, 'Loading screen now see-through. Spike now comes from the other side. Tip unchanged.', 'Loading now comes in two parts. So does the spike.'],
+      hint: 'Hint: hop the one from behind, then turn round. Part two comes from the right.',
       build(T, s) {
-        T.armed = cpIdx === 0; T.t = 0;
-        T.sp = addSpike(s === 0 ? 14 : -4, 0, 1, 'up', { dyn: true, trap: T });
-        if (!T.armed) T.sp.dead = true;
+        T.armed = spawnPoint().x < 5; T.t = 0;
+        // Each spike: where it starts, which way it runs, and when it sets off.
+        const plan = s === 0 ? [[14, -1, 0.3]] : s === 1 ? [[-4, 1, 0.3]] : [[-4, 1, 0.3], [15, -1, 3.9]];
+        T.sps = plan.map(([x, dir, t0]) => ({ sp: addSpike(x, 0, 1, 'up', { dyn: true, trap: T }), dir, t0 }));
+        for (const k of T.sps) k.sp.dead = !T.armed || k.t0 > 1;
       },
       update(T, dt, s) {
         if (!T.armed) return;
         T.t += dt;
-        const op = s === 0 ? 0.97 : 0.7, dur = 3.4;
-        if (T.t < dur + 0.5) ui.loading = { op: T.t < dur ? op : op * (1 - (T.t - dur) / 0.5), frac: clamp(T.t / dur, 0, 1), title: 'Loading 1-2…', tip: 'Tip: the spike comes from the right. Stand still while loading!' };
-        const sp = T.sp, pc = pl.x + PW / 2, sc = sp.x + 0.5;
-        if (!sp.harmless && T.t > 0.3) sp.x += (s === 0 ? -4.5 : 4.5) * dt;
-        const passed = s === 0 ? pc > sc + 1 : sc > pc + 1;
-        if (!sp.harmless && (passed || sp.x > 15)) sp.harmless = true;
-        if (sp.harmless) { sp.y -= 3 * dt; if (sp.y < -0.8) sp.dead = true; }
+        const op = s === 0 ? 0.97 : 0.7, dur = 3.4, end = s === 2 ? dur * 2 + 0.2 : dur, part2 = s === 2 && T.t > dur;
+        if (T.t < end + 0.5) ui.loading = {
+          op: T.t < end ? op : op * (1 - (T.t - end) / 0.5), frac: clamp((part2 ? T.t - dur - 0.2 : T.t) / dur, 0, 1),
+          title: part2 ? 'Loading 1-2 (part 2 of 2)…' : 'Loading 1-2…',
+          tip: part2 ? 'Tip: that was the only spike. Relax.' : s === 2 ? 'Tip: the spike comes from behind. Just the one.' : 'Tip: the spike comes from the right. Stand still while loading!',
+        };
+        const pc = pl.x + PW / 2;
+        for (const k of T.sps) {
+          const sp = k.sp, sc = sp.x + 0.5;
+          if (T.t < k.t0) continue;
+          if (!k.live) { k.live = true; sp.dead = false; }
+          if (sp.harmless) { sp.y -= 3 * dt; if (sp.y < -0.8) sp.dead = true; continue; }
+          sp.x += k.dir * 4.5 * dt;
+          const passed = k.dir < 0 ? pc > sc + 1 : sc > pc + 1;
+          if (passed || sp.x > 15.5 || sp.x < -5) sp.harmless = true;
+        }
       },
     },
     {
-      id: 'gap2', name: 'The Gap (Remastered)', zone: [15.5, 28], max: 1, sayAt: 13,
-      approach: ['Remember the Gap? It remembers you.', "It falls if you stand on it. Jump off quick!"],
-      deaths: ['Reverted to v1.0! The far floor still leaves when you jump.', 'It was a lift. You were supposed to ride it.'],
-      patch: [null, 'Far floor removed. Platform is now a lift. Instructions not included.'],
-      hint: 'Hint: stand on the platform and let it carry you.',
+      id: 'gap2', name: 'The Gap (Remastered)', zone: [15.5, 28], max: 2, sayAt: 13,
+      approach: ['Remember the Gap? It remembers you.', "It falls if you stand on it. Jump off quick!", "Same lift. It's had some budget cuts."],
+      deaths: ['Reverted to v1.0! The far floor still leaves when you jump.', 'It was a lift. A sinking lift. Ride it, just not for too long.', "It stops short now. You jump the rest. Didn't I say?"],
+      patch: [null, 'Far floor removed. Platform is now a lift. It sinks under your weight. Instructions not included.', "Lift route shortened to save power. Lift sped up so nobody notices. It sinks slower now, as a treat."],
+      hint: "Hint: ride it to the far end and jump right as it turns back. Hold jump. Don't ride it down.",
       build(T, s) {
         T.p = brick(18.5, -0.5, 2, 1, { dyn: true, trap: T }); T.pt = -1; T.drop = false; T.dir = 1; T.shown = false;
         T.F = s === 0 ? addSolid(24, -8, 4, 8, 'ground', { dyn: true, trap: T }) : null;
@@ -880,9 +917,13 @@ const LEVEL_2 = {
           if (!T.drop && T.pt >= 0 && !pl.ground && pl.x > 19.8) { T.drop = true; sfx.rumble(); }
           if (T.drop) fall(T.F, dt);
         } else {
-          let nx = T.p.x + T.dir * 3 * dt;
-          if (nx > 25) { nx = 25; T.dir = -1; } if (nx < 17.5) { nx = 17.5; T.dir = 1; }
-          move(T.p, nx - T.p.x, 0);
+          const [lo, hi, v] = s === 2 ? [17.5, 22.5, 4] : [17.5, 25, 3];
+          let nx = T.p.x + T.dir * v * dt;
+          if (nx > hi) { nx = hi; T.dir = -1; } if (nx < lo) { nx = lo; T.dir = 1; }
+          // It sinks while you stand on it and floats back up to its rest height when you don't.
+          const sink = s === 2 ? GAP_SINK_V3 : GAP_SINK;
+          const ny = pl.ground === T.p ? T.p.y - sink * dt : Math.min(-0.5, T.p.y + sink * dt);
+          move(T.p, nx - T.p.x, ny - T.p.y);
         }
       },
     },
@@ -928,52 +969,72 @@ const LEVEL_2 = {
       },
     },
     {
-      id: 'camera', name: 'The Camera', zone: [66, 92], max: 1, sayAt: 67,
-      approach: ["The camera's on a break. Keep going, you'll be fine.", "Camera's back! It's a little dizzy."],
-      deaths: ["Couldn't see that? Me neither.", 'Upside down is just down, but up.'],
-      patch: [null, 'Camera back from break. Mounted upside down.'],
-      hint: 'Hint: right is still right. It just looks like left. Hop the brick, then jump the spike.',
-      build(T) { addSpike(88.5, 0, 1, 'up', { dyn: true, trap: T }); },
-      update(T, dt, s) { if (pl.x > 67 && pl.x < 91) { if (s === 0) camCtl.stuck = 71; else camCtl.flip = true; } },
+      id: 'camera', name: 'The Camera', zone: [66, 93], max: 2, sayAt: 67,
+      approach: ["The camera's on a break. Keep going, you'll be fine.", "Camera's back! It's had three coffees. It's fine.", "The camera's calmed down. It's just upside down now."],
+      deaths: ["Couldn't see that? Me neither.", "The world wasn't spinning. The camera was. You were just in it.", 'Upside down is just down, but up.'],
+      patch: [null, 'Camera back from break. Now rotates freely, for a more cinematic experience. Added a spike, for the shot.', 'Camera stopped spinning. Mounted upside down instead.'],
+      hint: 'Hint: right is still right. It just looks like left. Hop the brick, then the two spikes.',
+      build(T, s) { addSpike(88.5, 0, 1, 'up', { dyn: true, trap: T }); if (s >= 1) addSpike(91.5, 0, 1, 'up', { dyn: true, trap: T }); },
+      update(T, dt, s) { if (pl.x > 67 && pl.x < (s >= 1 ? 93 : 91)) { if (s === 0) camCtl.stuck = 71; else if (s === 1) camCtl.spin = true; else camCtl.flip = true; } },
     },
     {
-      id: 'pause', name: 'The Pause Screen', zone: [93, 106], max: 1, sayAt: 92,
-      approach: ['A little bridge. Nice and relaxing.', "Same bridge. I'll pause it for you again, since you liked that."],
-      deaths: ["That wasn't a real pause. Real pauses don't crumble.", "Blind jumping is a skill. You don't have it yet."],
-      patch: [null, 'Pause screen now fully opaque. Bridge now crumbles on contact. Countdown added (inaccurate).'],
-      hint: "Hint: three quick hops, like the first time. I'll say jump every time you land.",
-      build(T, s) { T.c = [95.5, 99, 102.5].map((x) => brick(x, -0.5, 1.5, 1, { dyn: true, trap: T, crumble: s === 0 ? 99 : 0.6 })); T.pt = -1; T.crumbled = false; T.landed = null; },
+      id: 'pause', name: 'The Pause Screen', zone: [93, 106], max: 2, sayAt: 92,
+      approach: ["A little bridge. I'll pause the game for you on it. Relax.", "I rebuilt the bridge. I'll call the jumps. Trust me.", "Fine. I've made the pause screen see-through. You can watch yourself fall."],
+      deaths: ["That wasn't a real pause. Real pauses don't crumble.", 'I said big jump. I think I said big jump.', "It still wasn't a real pause. Keep hopping!"],
+      patch: [null, 'Bridge crumbles faster. Last step raised. The Guide now says how big each jump is.', "Pause screen now see-through. Last step lowered again. Bridge only crumbles if you stop for a rest."],
+      hint: "Hint: ignore the pause screen. Three quick hops, straight across. Don't stop.",
+      build(T, s) {
+        // v1: opaque pause, crumbles on contact, the Guide calls "Jump!" · v2: faster, raised last step, "Big jump!"
+        // v3: see-through pause, steps hold until you've been on the bridge 1 s, then all of them go.
+        T.c = [95.5, 99, 102.5].map((x, i) => brick(x, s === 1 && i === 2 ? 0.5 : -0.5, 1.5, 1, { dyn: true, trap: T, crumble: s === 0 ? 0.6 : s === 1 ? 0.4 : 99 }));
+        T.pt = -1; T.crumbled = false; T.landed = null;
+      },
       update(T, dt, s) {
-        if (T.pt < 0 && pl.ground === T.c[0]) { T.pt = 0; say(s === 0 ? 'Taking a quick break!' : 'Paused! Jump on my count.', 3); }
+        if (T.pt < 0 && pl.ground === T.c[0]) { T.pt = 0; say(s === 2 ? 'Taking a quick break!' : 'Paused! Jump on my count.', 3); }
         if (T.pt < 0) return;
         T.pt += dt;
         const done = (pl.x > 105.5 && pl.ground) || T.pt > 6;
-        if (!done) ui.fakePause = { op: s === 0 ? 0.84 : 1, sub: s === 0 ? "The traps are also resting. They're thinking about you." : `Resuming in ${Math.max(1, Math.ceil(3 - T.pt))}…` };
-        if (s === 0 && T.pt > 1.0 && !T.crumbled) { T.crumbled = true; T.c.forEach((c) => { c.crumble = 0.5; c.ct = 0; }); }
-        if (s === 1 && pl.ground && T.c.includes(pl.ground) && T.landed !== pl.ground) { T.landed = pl.ground; say('Jump!', 3); }
+        if (!done) ui.fakePause = { op: s === 2 ? 0.84 : 1, sub: s === 2 ? "The traps are also resting. They're thinking about you." : `Resuming in ${Math.max(1, Math.ceil(3 - T.pt))}…` };
+        if (s === 2 && T.pt > 1.0 && !T.crumbled) { T.crumbled = true; T.c.forEach((c) => { c.crumble = 0.5; c.ct = 0; }); }
+        if (s <= 1 && pl.ground && T.c.includes(pl.ground) && T.landed !== pl.ground) { T.landed = pl.ground; say(s === 1 && pl.ground === T.c[1] ? 'Big jump!' : 'Jump!', 3); }
       },
     },
     {
-      id: 'prop', name: 'The Prop Spike', zone: [111, 118], max: 1, sayAt: 112,
-      approach: [null, "That spike? Also a prop. Walk right through it."],
-      deaths: ['It was a prop! The death counter is real, though.', 'That one was real. The budget came through.'],
-      patch: [null, 'Prop spike replaced with a real one. The budget came through.'],
-      hint: "Hint: jump over it. It's a spike.",
-      build(T, s) { addSpike(114, 0, 1, 'up', { dyn: true, trap: T, prop: s === 0 }); },
-      update() {},
-    },
-    {
-      id: 'exit', name: 'The Exit', zone: [119, 130], max: 1, sayAt: 119,
-      approach: ["There's the exit! For real this time.", 'Two doors. One of them says EXIT. Seems obvious.'],
-      deaths: ['Oops, that loads 1-2 again. Well, some of it.', 'EXIT was a loop. NOT THE EXIT is the exit. Obviously.'],
-      patch: [null, 'Added a second door. Labels are accurate. Technically.'],
-      hint: 'Hint: jump over EXIT. Walk into NOT THE EXIT.',
+      id: 'prop', name: 'The Prop Spike', zone: [110, 118], max: 2, sayAt: 108.5,
+      approach: ["That spike's a prop. Honestly. Walk right through it.", 'Real spike now. And a real ceiling. Small hop!', 'Same spike. Lower ceiling. An even smaller hop. Cosy!'],
+      deaths: ["The spike was a prop. The ceiling wasn't. The death counter is real either way.", 'You cleared it! Then the floor grew a spike. The budget came through.', 'Too high, too low, or too short. Pick one next time.'],
+      patch: [null, 'Spike is real now. Ceiling spikes made visible, for fairness.', 'Ceiling lowered. Landing spikes removed, as an apology.'],
+      hint: 'Hint: at full speed, just before the spike, tap jump. Barely hold it at all. Nothing grows on the landing now.',
       build(T, s) {
-        T.seq = -1;
-        if (s === 0) addDoor(125, 0, { trap: T, label: 'EXIT' });
-        else { addDoor(122.5, 0, { trap: T, label: 'EXIT' }); addDoor(126.6, 0, { trap: T, real: true, label: 'NOT THE EXIT' }); }
+        // v1: the ground spike is a prop (touching it still counts as a death) under invisible ceiling spikes.
+        addSpike(114, 0, 1, 'up', { dyn: true, trap: T, prop: s === 0 });
+        addSpike(111, s === 2 ? PROP_CEIL_V3 : PROP_CEIL, 7, 'down', { dyn: true, trap: T, hidden: s === 0 });
+        T.popped = false;
       },
-      update(T, dt) {
+      // v2: clear the spike without touching the ceiling, and a new spike pops up right where you land.
+      update(T, dt, s) {
+        if (s !== 1 || T.popped || pl.ground || pl.vy >= 0 || pl.x < 114.9 || pl.x > 118 || pl.y > 0.9) return;
+        T.popped = true;
+        const x = pl.x + PW / 2 + pl.vx * 0.06 - 0.5;
+        addSpike(x, 0, 1, 'up', { dyn: true, trap: T });
+        sfx.boing(); burst(x + 0.5, 0.2, 14, ['#26283d', '#ffffff'], 3, 0.4, 0.8);
+      },
+    },
+    {
+      id: 'exit', name: 'The Exit', zone: [118.5, 130], max: 2, sayAt: 119,
+      approach: ["There's the exit! For real this time.", 'Two doors. One of them says EXIT. Seems obvious.', 'Same two doors. NOT THE EXIT is still the exit. It just gets nervous.'],
+      deaths: ['Oops, that loads 1-2 again. Well, some of it.', 'EXIT was a loop. NOT THE EXIT is the exit. Obviously.', 'It jumped over you. You jumped into EXIT. Classic.'],
+      patch: [null, 'Added a second door. Labels are accurate. Technically.', 'NOT THE EXIT learned to jump. It picked it up from the Spike.'],
+      hint: 'Hint: when it hops behind you, jump back over EXIT and walk into it.',
+      build(T, s) {
+        T.seq = -1; T.hop = -1; T.real = null;
+        if (s === 0) addDoor(125, 0, { trap: T, label: 'EXIT' });
+        else { addDoor(122.5, 0, { trap: T, label: 'EXIT' }); T.real = addDoor(126.6, 0, { trap: T, real: true, label: 'NOT THE EXIT' }); }
+      },
+      update(T, dt, s) {
+        // v3: once you're past EXIT, NOT THE EXIT hops back over your head and lands behind EXIT.
+        if (s === 2 && T.hop < 0 && pl.x > 124.2) { T.hop = 0; sfx.boing(); say('Oh no. It got nervous.', 2); }
+        if (T.hop >= 0 && T.hop < 1) { T.hop = Math.min(1, T.hop + dt / 0.9); T.real.x = lerp(126.6, 119.2, T.hop); T.real.y = Math.sin(T.hop * Math.PI) * 4.5; }
         if (T.seq < 0) return;
         T.seq += dt;
         ui.loading = { op: Math.min(1, T.seq * 3), frac: Math.min(1, T.seq / 1.2), title: 'Loading 1-3…', tip: 'Tip: levels are better when they end.' };
@@ -1005,76 +1066,105 @@ function makeMushroom(x, y) {
   const halo = new THREE.Mesh(new THREE.CircleGeometry(0.6, 20), new THREE.MeshBasicMaterial({ color: '#7fffd4', transparent: true, opacity: 0.18, depthWrite: false })); halo.position.set(0, 0.35, -0.05); g.add(halo);
   dynGroup.add(g); return g;
 }
+// 1-3 tuning. `npm test` checks every final version is still beatable and reports the slack.
+const FLASH_EVERY = 2.6, FLASH_LEN = 0.35;          // Flash v2/v3: a flash every FLASH_EVERY s, FLASH_LEN s long
+const LAMP_V1 = [3.0, -0.35], LAMP_V2 = [3.2, -0.3];  // Tunnel: [period, lag]; a negative lag runs the wave backwards
+const LAMP_V3A = [2.2, -0.3], LAMP_V3B = [1.2, 0.12]; // Tunnel v3: the left half (backwards) and the right half (fast, forwards)
+const SHROOM_CRUMBLE = 0.3, SHROOM_BOB = 0.8;        // Mushrooms: crumble time; v3 bob height (tiles)
+const BRIDGE_ON = 1.2, BRIDGE_OFF = 1.2, BRIDGE_ON_V3 = 0.8;   // v3: the two halves take turns
+const STATUE_SPEED = [9, 11, 12], STATUE_DELAY = [0.35, 0.35, 0.2], STATUE_WAKE = 8;  // Statues: speed; unwatched time before they move; how near before they wake  // Statues: creep speed; how long unwatched before they move; how near before they wake
+const BEAM_V2 = [3.5, 1.6], BEAM_V3 = [4.5, 1.25];    // Lighthouse: [speed, half-width of the lit floor]
+const GUIDE_FAST = 5.8, GUIDE_CHARGE = 9, FAKE_STUCK = 1.2;
 const LEVEL_3 = {
-  id: '1-3', title: 'Lights Out', theme: 'night', song: 'night', end: 175, last: true,
+  id: '1-3', title: 'Lights Out', theme: 'night', song: 'night', end: 243, last: true,
   intro: "Power cut! I've given you a little light. A very little light. Mostly for dramatic effect.",
-  winTitle: 'Lights on. World 1 complete.', winText: "You beat the Guide. It's still stuck by the gap, asking for help. You can leave it there.",
+  winTitle: 'Lights on. World 1 complete.', winText: "You beat the Guide. It's still stuck by the gap, asking for help. It's lying. You can leave it there.",
   winLine: "Fine. You win. I'll be here. In the dark. Thinking about what you did.",
-  checkpoints: [{ x: 1, y: 0 }, { x: 53, y: 0, line: "Checkpoint! I'd light it up for you, but, you know." }, { x: 99, y: 0, line: "Checkpoint! Last one. I've got a surprise for you." }],
+  checkpoints: [{ x: 1, y: 0 }, { x: 53, y: 0, line: "Checkpoint! I'd light it up for you, but, you know." }, { x: 99, y: 0, line: 'Checkpoint! Halfway. Roughly. I lost count in the dark.' },
+    { x: 127, y: 0, line: "Checkpoint! You thought that was the end. It wasn't." }, { x: 167, y: 0, line: "Checkpoint! Last one. I've got a surprise for you." }],
   statics() {
-    wall(-8, -5, 12); ground(-5, 14); ground(28, 48); ground(51, 74); ground(96, 110);
-    brick(113, -0.5, 2); brick(117, 0.5, 2); brick(121.5, -0.5, 2); brick(126, 0.5, 2);
-    brick(144, 0, 2);
-    ground(148, 175); wall(175, 178, 12);
+    wall(-8, -5, 12); ground(-5, 14); ground(28, 48); ground(51, 74); ground(96, 112);
+    ground(125, 150); ground(164, 178);
+    brick(181, -0.5, 2); brick(185, 0.5, 2); brick(189.5, -0.5, 2); brick(194, 0.5, 2);
+    brick(212, 0, 2);
+    ground(216, 234); ground(237, 243); wall(243, 246, 12);
     signMesh(['LIGHTS OUT', 'mind the dark →'], 3, 0);
   },
   traps: () => [
     {
-      id: 'flash', name: 'The Flash', zone: [11, 29], max: 1, sayAt: 11,
-      approach: ['Hang on, let me get the lights for you!', 'Lights! Memorise that. Things move in the dark.'],
-      deaths: ["Those were the fake platforms. The real ones are shy. They only show up when you're close.", 'They drift when it gets dark. Like me.'],
-      patch: [null, 'Fake platforms removed. Real platforms now drift in the dark.'],
-      hint: "Hint: ignore my flash. Creep to the edge until your light finds the next one, then time it.",
+      id: 'flash', name: 'The Flash', zone: [11, 29], max: 2, sayAt: 11,
+      approach: ['Hang on, let me get the lights for you!', "Lights on a timer now! Memorise the platforms. You won't see them in the dark.", 'The platforms are back in the dark. They drift. And they hate the light now.'],
+      deaths: ["Those were the fake platforms. The real ones are shy. You have to be really close to see them.", 'They were right where the flash showed them. You just had to remember.', "They're shy of the light. When I flash, they're gone. Didn't I say?"],
+      patch: [null, 'Fake platforms removed. Platforms now only visible while the lights flash. Flash on a timer. Your lantern blinks before each one.', 'Platforms visible in the dark again. They drift now, and vanish while the lights are on.'],
+      hint: 'Hint: when your lantern blinks, the flash is coming. Be in the air or on solid ground when it hits.',
       build(T, s) {
         T.R = [[16.5, -0.5], [20.5, 0], [24.5, -0.5]].map(([x, y]) => brick(x, y, 1.5, 1, { dyn: true, trap: T }));
         T.base = T.R.map((r) => r.x);
         T.F = s === 0 ? [[16, 1], [20, 2], [24, 1]].map(([x, y]) => brick(x, y, 1.5, 1, { dyn: true, trap: T, fake: true })) : [];
-        T.fired = false; T.t = 0;
+        T.fired = false; T.t = 0; T.ft = -1;
       },
       update(T, dt, s) {
-        if (!T.fired && pl.x > 11) { T.fired = true; flashT = 0.7; sfx.flash(); }
+        if (!T.fired && pl.x > 11) { T.fired = true; flashT = 0.7; sfx.flash(); T.ft = 0; }
+        // v2/v3: after the first flash, another one every FLASH_EVERY s. The lantern blinks for the last 0.45 s before it.
+        if (s >= 1 && T.ft >= 0 && pl.x < 30) {
+          const before = T.ft; T.ft += dt;
+          if (before < FLASH_EVERY - 0.45 && T.ft >= FLASH_EVERY - 0.45) sfx.flip();
+          if (T.ft >= FLASH_EVERY - 0.45 && Math.floor(T.ft * 10) % 2 === 0) lightCtl.lantern = false;
+          if (T.ft >= FLASH_EVERY) { T.ft -= FLASH_EVERY; flashT = FLASH_LEN; sfx.flash(); }
+        }
         const flashing = flashT > 0, pc = pl.x + PW / 2;
-        if (s === 0) T.R.forEach((r) => (r.mesh.visible = !flashing && Math.abs(pc - (r.x + r.w / 2)) < 2.4));
+        if (s === 0) T.R.forEach((r) => (r.mesh.visible = !flashing && Math.abs(pc - (r.x + r.w / 2)) < 1.6));
+        else if (s === 1) T.R.forEach((r) => (r.mesh.visible = flashing));
         else {
           T.t += dt;
           if (!flashing) T.R.forEach((r, i) => move(r, T.base[i] + Math.sin(T.t * 2.4 + i * 1.6) * 1.0 - r.x, 0));
+          T.R.forEach((r) => { r.solid = !flashing; r.mesh.visible = !flashing; });
         }
       },
     },
     {
-      id: 'eyes', name: 'The Eyes', zone: [30, 48], max: 1, sayAt: 31,
-      approach: ['Eyes in the dark. Just a hedgehog. Hop over it, like old times.', "The bat's awake now. At least you can see it. Hop when it's not looking."],
-      deaths: ['There was a bat. Sleeping. Right above. Did I not say?', 'Bats move. Hedgehogs don\'t. You needed the opposite.'],
-      patch: [null, 'Bat is awake and patrolling. Eyes now visible. You are welcome.'],
-      hint: 'Hint: wait for the bat to swing away, then hop the hedgehog with a medium jump.',
+      id: 'eyes', name: 'The Eyes', zone: [30, 48], max: 2, sayAt: 31,
+      approach: ['Eyes in the dark. Just a hedgehog. Hop over it, like old times.', "The bat's awake now. At least you can see it. Hop when it's not looking.", 'The bat brought a friend. They take turns.'],
+      deaths: ['There was a bat. Sleeping. Right above. Did I not say?', 'Bats move. Hedgehogs don\'t. You needed the opposite.', "They were taking turns. You weren't."],
+      patch: [null, 'Bat is awake and patrolling. Eyes now visible. You are welcome.', 'Added a second bat, for symmetry. They swing in opposite directions.'],
+      hint: 'Hint: the middle is only clear when both bats are out at the ends. Hop right then, low and quick.',
       build(T, s) {
         addEnemy(38, 0, { trap: T, speed: 0, secret: true, glow: true });
         if (s === 0) addEnemy(38, 2.0, { trap: T, speed: 0, bat: true, sleep: true });
         else addEnemy(38, 2.0, { trap: T, speed: 0, bat: true, glow: true, sway: 2.4, amp: 4 });
+        if (s === 2) addEnemy(38, 2.0, { trap: T, speed: 0, bat: true, glow: true, sway: 2.4, amp: -4 });
       },
       update() {},
     },
     {
-      id: 'lamp', name: 'The Tunnel (Dark Mode)', zone: [55, 72], max: 1, sayAt: 55,
-      approach: ["Oops, your light's out. It's the same tunnel as before, don't worry. Listen carefully.", "Still no light, but I painted the crushers. Glow-in-the-dark! And I tweaked the rhythm. Slightly."],
-      deaths: ['The crushers were very loud. Did you not hear them?', "The wave runs backwards now. Your 1-1 timing won't work here."],
-      patch: [null, 'Crushers now glow. Wave now runs right to left. Rhythm slowed down, to be fair.'],
-      hint: 'Hint: the last crusher drops first now. Go the moment the first one lifts, and run straight through.',
-      build(T, s) { T.segs = [0, 1, 2].map((i) => addSolid(58 + i * 3, 2, 3, 10, s === 0 ? 'crusher' : 'crusherGlow', { dyn: true, trap: T, crush: true })); T.t = 0; },
+      id: 'lamp', name: 'The Tunnel (Dark Mode)', zone: [55, 73], max: 2, sayAt: 55,
+      approach: ["Oops, your light's out. It's the same tunnel as in 1-1, don't worry. Listen carefully.", "I painted the crushers. Glow-in-the-dark! And I added one. You're welcome.", "I split the tunnel in two. There's a nice little room in the middle to rest in."],
+      deaths: ["The wave runs backwards here. Your 1-1 timing won't work.", 'Four is more than three. I checked.', "The two halves don't agree which way the wave goes. Neither do I."],
+      patch: [null, 'Crushers now glow. Added a fourth. Rhythm slowed down, to be fair.', 'Tunnel split in two with a rest stop in the middle. The second half runs the other way.'],
+      hint: 'Hint: first half, go the instant its first crusher starts to lift. Wait in the middle room. Second half, go the instant its first crusher slams.',
+      build(T, s) {
+        const xs = s === 2 ? [57, 59, 61, 66, 68, 70] : s === 1 ? [58, 61, 64, 67] : [58, 61, 64];
+        T.segs = xs.map((x) => addSolid(x, 2, s === 2 ? 2 : 3, 10, s === 0 ? 'crusher' : 'crusherGlow', { dyn: true, trap: T, crush: true }));
+        T.t = 0;
+      },
       update(T, dt, s) {
-        if (pl.x > 55 && pl.x < 69) lightCtl.lantern = false;
-        if (s === 0) waveCrush(T, dt); else waveCrush(T, dt, 3.0, -0.35);
+        if (pl.x > 55 && pl.x < 72) lightCtl.lantern = false;
+        if (s < 2) waveCrush(T, dt, ...(s === 0 ? LAMP_V1 : LAMP_V2));
+        else { T.t += dt; crushWave(T.segs.slice(0, 3), T.t, ...LAMP_V3A); crushWave(T.segs.slice(3), T.t + 1.1, ...LAMP_V3B); }
       },
     },
     {
-      id: 'shrooms', name: 'The Mushrooms', zone: [73, 96], max: 1, sayAt: 72,
-      approach: ['Glowing mushrooms! Follow the lights. Nature knows the way.', "I'm borrowing your lantern. Use the mushrooms. They're very reliable. Mostly."],
-      deaths: ["The mushrooms grow on fake platforms. Everyone knows that. It's in the mushroom handbook.", 'Keep moving! The platforms crumble and the mushrooms go out when you land.'],
-      patch: [null, 'Mushrooms moved to real platforms. Platforms now crumble. Lantern confiscated.'],
-      hint: "Hint: don't stop. Land and jump, land and jump. Aim for the next glow each time.",
+      id: 'shrooms', name: 'The Mushrooms', zone: [73, 96], max: 2, sayAt: 72,
+      approach: ['Glowing mushrooms! Follow the lights. Nature knows the way.', "I'm borrowing your lantern. Use the mushrooms. They're very reliable. Mostly.", 'The mushrooms are dancing. Must be the music.'],
+      deaths: ["The mushrooms grow on fake platforms. It's in the mushroom handbook.", 'Keep moving! The platforms crumble, and the mushrooms go out when you land.', "You jumped to where it was. It had moved. That's dancing."],
+      patch: [null, 'Mushrooms moved to real platforms. Platforms now crumble. Steps rearranged. Lantern confiscated.', 'Platforms now bob up and down. Nobody knows why. Crumbling unchanged.'],
+      hint: "Hint: don't stop on a step, but time each jump for when the next glow is low.",
       build(T, s) {
-        const reals = [[76, 0.5], [79.5, 1], [83, 0.5], [86.5, 1], [90, 0.5], [93.5, 0.5]];
-        T.R = reals.map(([x, top]) => brick(x, top - 1, 1.2, 1, { dyn: true, trap: T, crumble: s === 1 ? 0.45 : null }));
+        // v2 has steps at different heights; v3 goes back to the flatter steps, but they bob.
+        const reals = s === 1 ? [[76, 0.5], [79.6, 1.5], [83.2, 0.3], [86.9, 1.4], [90.5, 0.2], [93.9, 1]]
+          : [[76, 0.5], [79.5, 1], [83, 0.5], [86.5, 1], [90, 0.5], [93.5, 0.5]];
+        T.R = reals.map(([x, top]) => brick(x, top - 1, 1.2, 1, { dyn: true, trap: T, crumble: s >= 1 ? SHROOM_CRUMBLE : null }));
+        T.base = T.R.map((r) => r.y); T.t = 0;
         T.M = [];
         if (s === 0) {
           // The glow sits on fakes in the gaps; the real steps stay dark.
@@ -1085,7 +1175,9 @@ const LEVEL_3 = {
         } else T.R.forEach((r) => T.M.push({ m: makeMushroom(r.x + 0.6, r.y + r.h), on: r }));
       },
       update(T, dt, s) {
-        if (s === 1 && pl.x > 73 && pl.x < 96) lightCtl.lantern = false;
+        if (s >= 1 && pl.x > 73 && pl.x < 96) lightCtl.lantern = false;
+        T.t += dt;
+        if (s === 2) T.R.forEach((r, i) => { if (r.ct < 0) move(r, 0, T.base[i] + Math.sin(T.t * 3.9 + i * 1.3) * SHROOM_BOB - r.y); });
         for (const mm of T.M) {
           if (mm.on && pl.ground === mm.on && mm.m.visible) { mm.m.visible = false; sfx.blip(); }
           if (mm.on) mm.m.position.set(mm.on.x + 0.6 + (mm.on.shake ? rand(-0.05, 0.05) : 0), mm.on.y + mm.on.h, 0.1);
@@ -1094,43 +1186,136 @@ const LEVEL_3 = {
       },
     },
     {
-      id: 'guide', name: 'The Guide', zone: [104, 175], max: 1, sayAt: 999,
-      approach: [null, null],
-      deaths: ['Oops. I deleted that one. Tidying up!', "Wait for them to come back! Or don't. I'm right behind you."],
-      patch: [null, "Deleted blocks now come back. Eventually. I'm still coming."],
-      hint: 'Hint: when a block vanishes, stop on the one before it. It comes back. Then go, go, go.',
-      build(T) {
-        T.p5 = brick(130.5, -0.5, 2, 1, { dyn: true, trap: T });
-        T.p6 = brick(135, 0, 2, 1, { dyn: true, trap: T });
-        T.p7 = brick(139.5, -0.5, 2, 1, { dyn: true, trap: T });
+      id: 'bridge', name: 'The Light Bridge', zone: [108, 125], max: 2, sayAt: 106,
+      approach: ["I'll hold a light bridge for you. Take your time!", "The bridge is on a timer now. I'll count you in. There's a pillar in the middle.", 'Same bridge. The two halves are on separate timers now. For fun.'],
+      deaths: ['Oops. Battery.', "It goes off when the count runs out. Mostly when the count runs out.", 'The second half had other plans.'],
+      patch: [null, "Bridge now on a timer: a second on, a bit off. Added a pillar. Countdown included.", 'Each half of the bridge now has its own timer. Countdown still only counts the first half.'],
+      hint: 'Hint: ignore my counting. Go the instant a half lights up, stop on the pillar, go again the instant the next half lights up.',
+      build(T, s) {
+        // Each half is 6 tiles: too far to jump, so you have to touch the light.
+        T.A = addSolid(112, -0.5, 6, 0.5, 'light', { dyn: true, trap: T });
+        T.M = s === 0 ? addSolid(118, -0.5, 1, 0.5, 'light', { dyn: true, trap: T }) : brick(118, -1, 1, 1, { dyn: true, trap: T });
+        T.B = addSolid(119, -0.5, 6, 0.5, 'light', { dyn: true, trap: T });
+        T.t = -1; T.off = false;
+      },
+      update(T, dt, s) {
+        const set = (b, on) => { b.solid = on; b.mesh.visible = on; };
+        if (s === 0) {
+          // v1: it's on until you're halfway across.
+          if (!T.off && pl.x > 115 && [T.A, T.M, T.B].includes(pl.ground)) { T.off = true; sfx.zap(); say('Oops. Battery.', 3); [T.A, T.M, T.B].forEach((b) => set(b, false)); }
+          return;
+        }
+        if (T.t < 0) { if (pl.x < 104) return; T.t = 0; }
+        T.t += dt;
+        const on = s === 1 ? BRIDGE_ON : BRIDGE_ON_V3, cyc = on + BRIDGE_OFF;
+        const pa = T.t % cyc, pb = (T.t + (s === 2 ? cyc / 2 : 0)) % cyc;
+        set(T.A, pa < on); set(T.B, pb < on);
+        if (pl.x > 106 && pl.x < 125) ui.banner = pa < on ? `💡 Bridge on · off in ${Math.max(0, on - pa).toFixed(1)}` : `Bridge off · on in ${(cyc - pa).toFixed(1)}`;
+      },
+    },
+    {
+      id: 'statues', name: 'The Statues', zone: [128, 148], max: 2, sayAt: 127,
+      approach: ["Just some spikes. They don't move. Hop them and don't look back.", 'Your light points the way you face. Keep an eye on them.', "They've had a coffee. They're quicker off the mark now."],
+      deaths: ["They moved. They only move when you're not looking. Like me.", 'Looking back works. Looking back often works better.', 'Quicker off the mark. Like me, at lunchtime.'],
+      patch: [null, 'Statues now faster, and there are more of them. Look back more.', 'Statues now start moving sooner after you look away, and move faster.'],
+      hint: 'Hint: tap back the other way for a split second every so often, even mid-jump. It freezes them.',
+      build(T, s) {
+        const xs = s === 0 ? [133, 137.5] : [133, 137.5, 142];
+        T.S = xs.map((x) => addSpike(x, 0, 1, 'up', { dyn: true, trap: T }));
+        T.done = spawnPoint().x > 141;   // respawning past them (dev jumps): they've given up
+        if (T.done) T.S.forEach((sp) => (sp.dead = true));
+      },
+      update(T, dt, s) {
+        if (T.done) return;
+        if (pl.x > 147) { T.done = true; T.S.forEach((sp) => (sp.harmless = true)); return; }   // they give up at the lighthouse
+        const pc = pl.x + PW / 2;
+        // A statue moves only while it's behind the way Pip faces (out of the lantern), after a short delay.
+        for (const sp of T.S) {
+          if (sp.harmless) continue;
+          const dx = sp.x + 0.5 - pc, watched = dx * pl.face > -0.3 || Math.abs(dx) > STATUE_WAKE;
+          sp.unseen = watched ? 0 : (sp.unseen || 0) + dt;
+          sp.shake = sp.unseen > 0 ? 0.03 : 0;
+          if (sp.unseen > STATUE_DELAY[s]) sp.x = clamp(sp.x - Math.sign(dx) * STATUE_SPEED[s] * dt, 125, 149);
+        }
+      },
+    },
+    {
+      id: 'beam', name: 'The Lighthouse', zone: [148, 166], max: 2, sayAt: 147,
+      approach: ["A lighthouse! Stay out of the beam, it's very hot. Walk in the dark bits.", 'The floor only exists in the light. Walk with the beam.', "Same beam. Faster, narrower, and it stops for a breather halfway."],
+      deaths: ['Oh, the floor only exists where the light is. Did I say the opposite?', 'Too fast or too slow. Stay in the light.', "It stopped. You didn't."],
+      patch: [null, 'Beam now sweeps slowly across, starting when you get close. Floor still only exists in the light.', 'Beam now faster and narrower, and it pauses for a moment halfway.'],
+      hint: 'Hint: stay in the middle of the light. When it stops, you stop.',
+      build(T, s) {
+        T.F = []; for (let x = 150; x < 164; x++) T.F.push(addSolid(x, -1, 1, 1, 'brick', { dyn: true, trap: T }));
+        T.bx = 148.2; T.t = 0; T.go = false; T.wait = 0; T.paused = 0;
+        T.glow = new THREE.Mesh(new THREE.BoxGeometry(1, 14, 0.2), new THREE.MeshBasicMaterial({ color: '#fff1b8', transparent: true, opacity: 0.12, depthWrite: false }));
+        T.lamp = new THREE.PointLight('#fff1b8', 8, 6, 1.2);
+        dynGroup.add(T.glow, T.lamp);
+      },
+      update(T, dt, s) {
+        const [v, half] = s === 2 ? BEAM_V3 : BEAM_V2;
+        if (s === 0) { T.t += dt; T.bx = 157 + Math.sin(T.t * 2.5) * 7; }
+        else {
+          if (!T.go && pl.x > 146) T.go = true;
+          if (T.go) {
+            if (T.wait > 0) { T.wait -= dt; if (T.wait <= 0) { T.bx = 148.2; T.paused = 0; } }
+            else if (s === 2 && T.paused < 0.5 && T.bx >= 157) T.paused += dt;
+            else { T.bx += v * dt; if (T.bx > 166) { T.bx = 166; T.wait = 1; } }
+          }
+        }
+        const hw = s === 0 ? 1.6 : half;
+        for (const f of T.F) { const on = Math.abs(f.x + 0.5 - T.bx) <= hw; f.solid = on; f.mesh.visible = on; }
+        T.glow.scale.x = hw * 2; T.glow.position.set(T.bx, 6, -0.4); T.lamp.position.set(T.bx, 2.5, 1.5);
+      },
+    },
+    {
+      id: 'guide', name: 'The Guide', zone: [172, 243], max: 2, sayAt: 999,
+      approach: [null, null, null],
+      deaths: ['Oops. I deleted that one. Tidying up!', "I wasn't stuck. I'm never stuck. Keep running next time.", 'That door was a painting. I painted it. For you.'],
+      patch: [null, 'Deleted blocks now come back. Eventually. Also I got stuck at the end. Totally stuck. Promise.', 'Guide now runs faster. The exit has been redecorated.'],
+      hint: "Hint: wait on the step before a vanished block. At the end, don't stop, and jump the first door.",
+      build(T, s) {
+        T.p5 = brick(198.5, -0.5, 2, 1, { dyn: true, trap: T });
+        T.p6 = brick(203, 0, 2, 1, { dyn: true, trap: T });
+        T.p7 = brick(207.5, -0.5, 2, 1, { dyn: true, trap: T });
+        T.td = addSolid(234, -8, 3, 8, 'ground', { dyn: true, trap: T }); T.trapdoor = false;
         T.g = makeGuideMesh(); T.g.visible = false; dynGroup.add(T.g);
-        T.state = 'idle'; T.gx = 0; T.del5 = -1; T.del7 = -1; T.deleted = false;
-        addDoor(168, 0, { trap: T, real: true, label: 'EXIT' });
+        T.state = 'idle'; T.gx = 0; T.del5 = -1; T.del7 = -1; T.deleted = false; T.st = 0;
+        if (s === 2) { T.paint = addDoor(234.9, 0, { trap: T, label: 'EXIT' }); addDoor(240, 0, { trap: T, real: true, label: 'EXIT' }); }
+        else addDoor(236, 0, { trap: T, real: true, label: 'EXIT' });
         music.rate = 1; $('face').classList.remove('evil');
       },
       update(T, dt, s) {
-        if (T.state === 'idle' && pl.x > 106) {
+        if (T.state === 'idle' && pl.x > 174) {
           T.state = 'chase'; T.gx = pl.x - 13; T.g.visible = true; music.rate = 1.3; $('face').classList.add('evil'); sfx.zap();
           say("Hi! It's me, the Guide. I'm coming to help. Run.", 3);
         }
-        if (T.state === 'chase') {
-          T.gx += 5.5 * dt;
+        if (T.state === 'chase' || T.state === 'charge') {
+          T.gx += (T.state === 'charge' ? GUIDE_CHARGE : s === 2 ? GUIDE_FAST : 5.5) * dt;
           if (pl.x < T.gx + 1.3) { die('guide', T); return; }
+        }
+        if (T.state === 'chase') {
           if (s === 0) {
-            if (!T.deleted && !pl.ground && pl.x > 128.3 && pl.vx > 0) { T.deleted = true; zapBlock(T.p5); say('Oops. Deleted that. Tidying up!', 3); }
+            if (!T.deleted && !pl.ground && pl.x > 196.3 && pl.vx > 0) { T.deleted = true; zapBlock(T.p5); say('Oops. Deleted that. Tidying up!', 3); }
           } else {
-            if (T.del5 < 0 && pl.x > 124) { T.del5 = 0; zapBlock(T.p5); say("Deleting this one. It'll be back. Probably.", 3); }
+            if (T.del5 < 0 && pl.x > 192) { T.del5 = 0; zapBlock(T.p5); say("Deleting this one. It'll be back. Probably.", 3); }
             if (T.del5 >= 0 && (T.del5 += dt) > 1.2 && !T.p5.solid) restoreBlock(T.p5);
             if (T.del7 < 0 && pl.ground === T.p6) { T.del7 = 0; zapBlock(T.p7); say('And that one. Spring cleaning!', 3); }
             if (T.del7 >= 0 && (T.del7 += dt) > 0.8 && !T.p7.solid) restoreBlock(T.p7);
           }
-          if (pl.x > 148 && pl.ground) { T.state = 'stuck'; music.rate = 1; say("Wait. I'm stuck. The door only opens from your side. Help me?", 3); }
+          if (pl.x > 216 && pl.ground) { T.state = s === 0 ? 'stuck' : 'fake'; music.rate = 1; say("Wait. I'm stuck. The door only opens from your side. Help me?", 3); }
         }
-        if (T.state === 'stuck') T.gx = Math.min(T.gx + 6 * dt, 144.5);
+        // v2+: the Guide isn't stuck at all.
+        if (T.state === 'fake' && (T.st += dt) > FAKE_STUCK) { T.state = 'charge'; music.rate = 1.5; $('face').classList.add('evil'); sfx.zap(); say('Just kidding!', 3); }
+        if (T.state === 'stuck' || T.state === 'fake') T.gx = Math.min(T.gx + 6 * dt, 212.5);
+        if (T.trapdoor) { fall(T.td, dt); T.paint.y = Math.min(T.paint.y, T.td.y + T.td.h); }
         T.g.position.set(T.gx, 2.4 + Math.sin(time * 3) * 0.2, 0);
         T.g.rotation.z = Math.sin(time * 2) * 0.06;
       },
-      touchDoor(T, d) { if (d.real) win(); },
+      touchDoor(T, d) {
+        if (d.real) { win(); return; }
+        if (!T.trapdoor) { T.trapdoor = true; sfx.rumble(); say("Oh, that one's a painting. On a trapdoor. I'm so sorry. I'm not.", 3); }
+      },
     },
   ],
 };
@@ -1142,6 +1327,10 @@ const LEVELS = [LEVEL_1, LEVEL_2, LEVEL_3];
 let state = 'title', L = null, levelIdx = 0, TRAPS = [], checkpoints = [];
 let deaths = 0, playTime = 0, dead = false, fakeDead = false, deadT = 0, cpIdx = 0, cpTrolled = false, shake = 0, won = false, time = 0;
 let levelFlags = {};
+// Dev mode (open the page with ?dev or #dev). `dev.spawn` overrides the checkpoint as the respawn point.
+const DEV = /[?&#]dev\b/.test(location.search + location.hash);
+const dev = { god: false, lock: false, boxes: false, speed: 1, frozen: false, steps: 0, spawn: null, safe: { x: 1, y: 0 } };
+const spawnPoint = () => dev.spawn ?? checkpoints[cpIdx];
 const progress = Object.assign({ unlocked: 1, best: {}, coward: false }, store.get('easy.progress', {}));
 const saveProgress = () => store.set('easy.progress', progress);
 const keys = {};
@@ -1180,7 +1369,7 @@ function buildDecor(th) {
 function applyTheme(th) {
   const T = THEMES[th];
   scene.background = T.sky; hemi.intensity = T.hemi; dl.intensity = T.dl; LINE.color.set(T.line);
-  lantern.intensity = T.night ? 7 : 0; lantern.distance = 5.5; lantern.decay = 1.4;
+  lantern.intensity = T.night ? LANTERN : 0; lantern.distance = 3.4; lantern.decay = 1.4;
   PIP.eyeWhites.forEach((w) => (w.material = T.night ? eyeGlowMat : MAT.white));
 }
 function loadLevel(i) {
@@ -1198,7 +1387,7 @@ function loadLevel(i) {
     return cp;
   });
   TRAPS = L.traps(); TRAPS.forEach((T) => { T.stage = 0; T.kills = 0; T.finalDeaths = 0; });
-  deaths = 0; playTime = 0; cpIdx = 0; cpTrolled = false; won = false; dead = false; fakeDead = false; levelFlags = {};
+  deaths = 0; playTime = 0; cpIdx = 0; dev.spawn = null; cpTrolled = false; won = false; dead = false; fakeDead = false; levelFlags = {};
   music.song = SONGS[L.song]; music.rate = 1; musicStop();
   $('lvName').textContent = L.title; $('lvId').textContent = L.id;
   $('face').classList.remove('evil');
@@ -1221,7 +1410,7 @@ function buildLevel() {
   L.extras?.(byId);
 }
 function spawn() {
-  const cp = checkpoints[cpIdx];
+  const cp = spawnPoint();
   pl.x = cp.x - PW / 2; pl.y = cp.y; pl.vx = pl.vy = 0; pl.ground = null; pl.squash = 1; pl.face = 1; pl.frozen = false;
   plMesh.visible = true;
   camera.position.x = pl.x + 3;
@@ -1235,11 +1424,16 @@ function teleport(x, y) {
 const trapAt = (x) => TRAPS.find((T) => x >= T.zone[0] && x <= T.zone[1]) || null;
 function advanceTrap(trap) {
   trap.kills++;
+  if (dev.lock) return;
   if (trap.stage < trap.max) { trap.stage++; setTimeout(() => showPatch(trap), 500); }
   else if (++trap.finalDeaths === 3) narr.queue.push({ text: trap.hint, prio: 2 });
 }
 function die(cause, trap) {
   if (dead || won) return;
+  if (dev.god && cause !== 'retry' && cause !== 'loop') {
+    if (cause === 'pit') { pl.x = dev.safe.x; pl.y = dev.safe.y + 0.5; pl.vx = pl.vy = 0; }
+    return;
+  }
   dead = true; deadT = 0; deaths++; pl.frozen = false;
   if (cause !== 'loop') { plMesh.visible = false; burst(pl.x + PW / 2, pl.y + PH / 2, 40, ['#ff6b5a', '#26283d', '#ffffff']); sfx.die(); if (!reduceMotion) shake = 0.5; }
   sadJingle();
@@ -1261,7 +1455,7 @@ function fakeDie(trap) {
 function respawn() {
   dead = false;
   if (fakeDead) { fakeDead = false; plMesh.visible = true; pl.vx = pl.vy = 0; say('See? Totally fine. Still counts, though.', 2); return; }
-  if (L.trollCp && cpIdx === L.trollCp && !cpTrolled) {
+  if (L.trollCp && cpIdx === L.trollCp && !cpTrolled && !dev.spawn) {
     cpTrolled = true; cpIdx = 0;
     setTimeout(() => say("Checkpoint? Oh, that flag was decorative. It's real now, though. Promise.", 3), 250);
   }
@@ -1282,9 +1476,8 @@ function win() {
   sfx.win(); say(L.winLine, 3);
   burst(pl.x + PW / 2, pl.y + 1, 80, ['#ffcc33', '#ff6b5a', '#57c7a3', '#8d6bf0', '#ffffff'], 9, 1.6);
   const prev = progress.best[L.id];
-  if (!prev || deaths < prev.deaths || (deaths === prev.deaths && playTime < prev.time)) progress.best[L.id] = { deaths, time: Math.round(playTime) };
-  progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, levelIdx + 2));
-  saveProgress();
+  if (!DEV && (!prev || deaths < prev.deaths || (deaths === prev.deaths && playTime < prev.time))) progress.best[L.id] = { deaths, time: Math.round(playTime) };
+  if (!DEV) { progress.unlocked = Math.max(progress.unlocked, Math.min(LEVELS.length, levelIdx + 2)); saveProgress(); }
   setTimeout(() => {
     $('wEyebrow').textContent = L.last ? 'World 1 complete' : `Level ${L.id} complete`;
     $('wTitle').textContent = L.winTitle; $('wText').textContent = L.winText;
@@ -1369,6 +1562,7 @@ function tick(dt) {
   moveX(pl.vx * dt);
   moveY(pl.vy * dt);
   pl.ground = landed;
+  if (pl.ground && !pl.ground.dyn) { dev.safe.x = pl.x; dev.safe.y = pl.y; }
   if (pl.ground?.spring) {
     const T = pl.ground.trap, hold = jumpHeld();
     pl.vy = T.stage === 0 ? 33 : hold ? 26 : 19;
@@ -1381,7 +1575,7 @@ function tick(dt) {
   for (const h of hazards) {
     if (h.dead || h.harmless) continue;
     const hb = { x: h.x + 0.2, y: h.dir === 'down' ? h.y + 0.15 : h.y, w: h.w - 0.4, h: h.h - 0.15 };
-    if (overlap(pbox, hb)) { if (h.prop) { h.harmless = true; fakeDie(h.trap); } else die('spike', h.trap); return; }
+    if (overlap(pbox, hb)) { h.hidden = false; if (h.prop) { h.harmless = true; fakeDie(h.trap); } else die('spike', h.trap); return; }
   }
   for (const e of enemies) {
     if (e.dead) { e.squashT += dt; continue; }
@@ -1413,7 +1607,7 @@ function tick(dt) {
   }
   for (const cp of checkpoints) {
     if (cp.idx > cpIdx && pl.x + PW / 2 > cp.x && Math.abs(pl.y - cp.y) < 3 && pl.ground) {
-      cpIdx = cp.idx; cp.active = true; cp.flag.material = MAT.gold; sfx.flag();
+      cpIdx = cp.idx; dev.spawn = null; cp.active = true; cp.flag.material = MAT.gold; sfx.flag();
       burst(cp.x + 0.5, cp.y + 2.1, 16, ['#ffcc33', '#ffffff'], 4, 0.6, 1);
       say(cp.line, 2);
     }
@@ -1438,7 +1632,7 @@ function render(dt, t) {
     if (s.spring) { s.springT = Math.max(0, s.springT - dt * 4); s.mesh.userData.coil.scale.y = 1 - Math.sin(s.springT * Math.PI) * 0.5; }
   }
   for (const h of hazards) {
-    h.mesh.position.set(h.x + (h.shake ? rand(-h.shake, h.shake) : 0), h.y, 0); h.mesh.visible = !h.dead;
+    h.mesh.position.set(h.x + (h.shake ? rand(-h.shake, h.shake) : 0), h.y, 0); h.mesh.visible = !h.dead && !h.hidden;
     if (h.mat) h.mat.color.set(h.hot ? '#ff3b2f' : '#26283d');
   }
   for (const e of enemies) {
@@ -1446,7 +1640,7 @@ function render(dt, t) {
     m.position.set(e.x + e.w / 2, e.y, 0);
     if (e.dead) { m.scale.set(1.3, Math.max(0.15, 1 - e.squashT * 6), 1.3); m.visible = e.squashT < 0.6; continue; }
     P.spikes.visible = e.spiky && !e.bat;
-    P.zzz.visible = e.sleep; P.zzz.position.y = 1.1 + Math.sin(t * 2) * 0.08;
+    P.zzz.visible = e.sleep && !THEMES[L.theme].night; P.zzz.position.y = 1.1 + Math.sin(t * 2) * 0.08;
     P.lids.visible = e.sleep && !e.bat; P.eyes.visible = !e.sleep;
     if (e.bat) P.wings.forEach((w, i) => (w.rotation.z = (i ? -1 : 1) * Math.sin(t * 18) * 0.6));
     else {
@@ -1469,7 +1663,8 @@ function render(dt, t) {
   if (T.night) {
     const f = flashT > 0 ? 1 : 0;
     hemi.intensity = lerp(T.hemi, 2.2, f); dl.intensity = f * 1.4;
-    lantern.intensity = lerp(lantern.intensity, lightCtl.lantern ? 7 : 0, damp(12, dt));
+    lantern.intensity = lerp(lantern.intensity, lightCtl.lantern ? LANTERN : 0, damp(12, dt));
+    lantern.position.x = lerp(lantern.position.x, pl.face * 1.3, damp(10, dt));   // it shines the way Pip faces
   }
 
   // Pip
@@ -1506,8 +1701,13 @@ function render(dt, t) {
   camera.position.z = camDist;
   if (shake > 0) { camera.position.x += rand(-shake, shake); camera.position.y += rand(-shake, shake); shake = Math.max(0, shake - dt * 1.5); }
   camera.lookAt(camera.position.x, camera.position.y - 0.8, 0);
-  camRoll = lerp(camRoll, camCtl.flip ? Math.PI : 0, damp(4, dt));
-  if (camRoll > 0.001) camera.rotateZ(camRoll);
+  if (camCtl.spin) camRoll += dt * 1.1;
+  else {
+    const want = camCtl.flip ? Math.PI : 0, TAU = Math.PI * 2;
+    camRoll = want + ((((camRoll - want + Math.PI) % TAU) + TAU) % TAU) - Math.PI; // unwind the shortest way
+    camRoll = lerp(camRoll, want, damp(4, dt));
+  }
+  if (Math.abs(camRoll) > 0.001) camera.rotateZ(camRoll);
   camera.updateMatrixWorld();
 
   // Off-screen marker for when the camera wanders off
@@ -1634,23 +1834,183 @@ $('copy').addEventListener('click', () => {
 });
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); fitCamera(); });
 
+/* ============ Dev tools (?dev) ============ */
+// Highest solid top under x (used to drop Pip onto the floor when jumping to a trap), or null.
+function groundTop(x) {
+  let top = -Infinity;
+  for (const s of solids) if (s.solid && x - 0.4 >= s.x && x + 0.4 <= s.x + s.w && s.y + s.h < 10) top = Math.max(top, s.y + s.h);
+  return top > -Infinity ? top : null;
+}
+// A spot near x (ahead up to maxX first, then back to minX) with solid floor and no hazard within reach.
+function safeSpot(x, minX, maxX) {
+  const ok = (c, y) => y != null && !hazards.some((h) => !h.dead && Math.abs(h.x + h.w / 2 - c) < h.w / 2 + 1 && Math.abs(h.y - y) < 2)
+    && !solids.some((s) => s.crush && c + 0.9 > s.x && c - 0.9 < s.x + s.w);
+  for (let c = x; c <= maxX; c += 0.25) if (ok(c, groundTop(c))) return { x: c, y: groundTop(c) };   // prefer ahead…
+  for (let c = x; c >= minX; c -= 0.25) if (ok(c, groundTop(c))) return { x: c, y: groundTop(c) };   // …then behind
+  return { x, y: groundTop(x) ?? 0 };
+}
+function devReset() {
+  for (const id of ['title', 'select', 'win', 'paused']) $(id).hidden = true;
+  $('hud').hidden = false; $('patch').hidden = true;
+  dead = false; fakeDead = false; won = false; pl.frozen = false; flashT = 0; state = 'play';
+}
+// Put Pip just before a trap (optionally at a given version). Deaths respawn here until you pass a checkpoint.
+function devGoto(id, stage) {
+  const T = TRAPS.find((t) => t.id === id); if (!T) return;
+  if (stage != null) T.stage = stage === 'final' ? T.max : clamp(stage, 0, T.max);
+  const x = Math.max(checkpoints[0].x, T.zone[0] - 1.5);
+  cpIdx = 0; for (const cp of checkpoints) if (cp.idx > 0 && cp.x <= x) cpIdx = cp.idx;
+  for (const cp of checkpoints) { cp.active = cp.idx <= cpIdx; if (cp.flag) cp.flag.material = cp.active ? MAT.gold : MAT.flagOff; }
+  devReset(); dev.spawn = { x, y: 0 };
+  buildLevel(); dev.spawn = safeSpot(x, Math.max(checkpoints[0].x, x - 6), T.zone[0] + 1);
+  if (dev.spawn.x !== x) buildLevel();   // traps that key off the spawn point see the final spot
+  spawn();
+  camera.position.set(pl.x + 3, Math.max(pl.y + 2, 3.5), camDist);
+}
+// Set every trap to one version (0-based, or 'final') and restart from the current respawn point.
+function devSetAll(v) {
+  for (const T of TRAPS) T.stage = v === 'final' ? T.max : clamp(v, 0, T.max);
+  devReset(); buildLevel(); spawn();
+}
+
+let devEl = null, devSig = '', devCv = null;
+if (DEV) {
+  devEl = document.createElement('div'); devEl.id = 'dev'; devEl.className = 'dev sticker'; document.body.appendChild(devEl);
+  devCv = document.createElement('canvas'); devCv.id = 'devBoxes'; document.body.appendChild(devCv);
+  devEl.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    b.blur();
+    const a = b.dataset.a;
+    if (state !== 'play' && state !== 'paused' && (a === 'go' || a === 'all')) playLevel(levelIdx);
+    if (a === 'go') devGoto(b.dataset.id, +b.dataset.s);
+    else if (a === 'all') devSetAll(b.dataset.s === 'final' ? 'final' : +b.dataset.s);
+    else if (a === 'step') { dev.frozen = true; dev.steps += +b.dataset.n; }
+    else if (a in dev) dev[a] = !dev[a];
+  });
+  devEl.addEventListener('change', (e) => {
+    const t = e.target; t.blur();
+    if (t.dataset.a === 'level') playLevel(+t.value);
+    if (t.dataset.a === 'speed') dev.speed = +t.value;
+  });
+  addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    const c = e.code;
+    if (c === 'Backquote') devEl.hidden = !devEl.hidden;
+    else if (c === 'KeyG') dev.god = !dev.god;
+    else if (c === 'KeyL') dev.lock = !dev.lock;
+    else if (c === 'KeyH') dev.boxes = !dev.boxes;
+    else if (c === 'KeyF') dev.frozen = !dev.frozen;
+    else if (c === 'Period') { dev.frozen = true; dev.steps += e.shiftKey ? 12 : 1; }
+    else if (c === 'BracketLeft') dev.speed = Math.max(0.25, dev.speed / 2);
+    else if (c === 'BracketRight') dev.speed = Math.min(4, dev.speed * 2);
+  });
+}
+function devPanel() {
+  const tog = (k, label, key) => `<button data-a="${k}" class="${dev[k] ? 'on' : ''}">${label} (${key})</button>`;
+  devEl.innerHTML = `
+    <div class="dhead"><b>DEV</b><span>\` hides this panel</span></div>
+    <pre id="devInfo"></pre>
+    <select data-a="level" aria-label="Level">${LEVELS.map((lv, i) => `<option value="${i}"${i === levelIdx ? ' selected' : ''}>${lv.id} ${lv.title}</option>`).join('')}</select>
+    <div class="dsub">Jump to a trap at a version:</div>
+    ${TRAPS.map((T) => `<div class="drow"><span title="${T.name}">${T.name}</span><span>${Array.from({ length: T.max + 1 }, (_, s) =>
+      `<button data-a="go" data-id="${T.id}" data-s="${s}" class="${s === T.stage ? 'on' : ''}">v${s + 1}</button>`).join('')}</span></div>`).join('')}
+    <div class="dtog"><button data-a="all" data-s="0">All v1</button><button data-a="all" data-s="final">All final</button></div>
+    <div class="dtog">${tog('god', 'God', 'G')}${tog('lock', 'Lock versions', 'L')}${tog('boxes', 'Hitboxes', 'H')}${tog('frozen', 'Freeze', 'F')}
+      <button data-a="step" data-n="1">Step (.)</button><button data-a="step" data-n="12">+0.1 s (⇧.)</button></div>
+    <label class="drow"><span>Speed ([ ])</span><select data-a="speed" style="width:auto">${[0.25, 0.5, 1, 2, 4].map((v) => `<option value="${v}"${v === dev.speed ? ' selected' : ''}>${v}×</option>`).join('')}</select></label>`;
+}
+function devUpdate() {
+  const sig = [levelIdx, dev.god, dev.lock, dev.boxes, dev.frozen, dev.speed, ...TRAPS.map((T) => T.stage)].join();
+  if (sig !== devSig) { devSig = sig; devPanel(); }
+  const T = trapAt(pl.x + PW / 2), f = (v) => v.toFixed(2).padStart(7);
+  $('devInfo').textContent =
+    `x ${f(pl.x)}  y ${f(pl.y)}\nvx${f(pl.vx)}  vy${f(pl.vy)}\n` +
+    `ground  ${pl.ground ? pl.ground.style : '-'}\n` +
+    `trap    ${T ? `${T.name} v${T.stage + 1}` : '-'}\n` +
+    `cp ${cpIdx}${dev.spawn ? ' (dev spawn)' : ''}  deaths ${deaths}\nstate ${state}${dead ? ' (dead)' : ''}`;
+  devBoxes();
+}
+// Hitbox overlay: what the physics actually sees, drawn over the 3D scene.
+function devBoxes() {
+  const W = innerWidth, H = innerHeight, r = Math.min(devicePixelRatio, 2);
+  if (devCv.width !== Math.round(W * r) || devCv.height !== Math.round(H * r)) { devCv.width = Math.round(W * r); devCv.height = Math.round(H * r); }
+  const g = devCv.getContext('2d');
+  g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, W, H);
+  if (!dev.boxes || state === 'title' || state === 'menu') return;
+  const P = (x, y) => { projV.set(x, y, 0).project(camera); return [(projV.x + 1) / 2 * W, (1 - projV.y) / 2 * H]; };
+  const box = (b, stroke, o = {}) => {
+    const pts = [P(b.x, b.y), P(b.x + b.w, b.y), P(b.x + b.w, b.y + b.h), P(b.x, b.y + b.h)];
+    g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath();
+    if (o.fill) { g.fillStyle = o.fill; g.fill(); }
+    g.setLineDash(o.dash ? [6, 4] : []); g.lineWidth = o.lw || 2; g.strokeStyle = stroke; g.stroke();
+    if (o.label) {
+      const [x, y] = P(b.x + b.w / 2, b.y + b.h);
+      g.setLineDash([]); g.font = '700 11px system-ui, sans-serif'; g.textAlign = 'center';
+      g.lineWidth = 3; g.strokeStyle = '#000'; g.strokeText(o.label, x, y - 4); g.fillStyle = stroke; g.fillText(o.label, x, y - 4);
+    }
+  };
+  TRAPS.forEach((T, i) => box({ x: T.zone[0], y: -7, w: T.zone[1] - T.zone[0], h: 21 }, 'rgba(141,107,240,.6)',
+    { fill: i % 2 ? 'rgba(141,107,240,.07)' : 'rgba(87,199,163,.07)', lw: 1, label: `${T.name} v${T.stage + 1}` }));
+  for (const s of solids) {
+    if (s.y < -40) continue;
+    if (s.hidden && !s.revealed) box(s, '#c77dff', { dash: true, label: 'HIDDEN' });
+    else if (s.fake) box(s, '#ff9f1c', { dash: true, label: 'FAKE' });
+    else if (!s.solid) box(s, '#999999', { dash: true, label: 'OFF' });
+    else box(s, s.crush ? '#ff3b2f' : s.spring ? '#00d0ff' : s.crumble != null ? '#ffd23f' : '#00e676',
+      { lw: s.crush ? 3 : 2, label: s.crush ? 'CRUSH' : s.spring ? 'SPRING' : s.crumble != null ? `CRUMBLE ${s.crumble}s` : '' });
+  }
+  for (const h of hazards) {
+    if (h.dead) continue;
+    const hb = { x: h.x + 0.2, y: h.dir === 'down' ? h.y + 0.15 : h.y, w: h.w - 0.4, h: h.h - 0.15 }, safe = h.harmless || h.prop;
+    box(hb, safe ? '#aaaaaa' : '#ff3b2f', { fill: safe ? '' : 'rgba(255,59,47,.35)', dash: h.hidden, label: h.prop ? 'PROP' : h.harmless ? 'SAFE' : h.hidden ? 'HIDDEN' : '' });
+  }
+  for (const e of enemies) if (!e.dead) box({ x: e.x + 0.06, y: e.y, w: e.w - 0.12, h: e.h }, '#ff4fd8',
+    { fill: 'rgba(255,79,216,.2)', label: e.secret ? 'SECRETLY SPIKY' : e.spiky ? 'SPIKY' : 'STOMPABLE' });
+  for (const d of doors) box({ x: d.x + 0.2, y: d.y, w: d.w - 0.4, h: d.h }, '#4da3ff', { label: d.real ? 'REAL' : d.cardboard ? 'CARDBOARD' : 'DOOR' });
+  const guide = TRAPS.find((T) => T.id === 'guide');
+  if (guide?.state === 'chase') box({ x: guide.gx + 1.3, y: -3, w: 0.02, h: 10 }, '#ff3b2f', { lw: 3, label: 'CAUGHT LINE' });
+  const sp = spawnPoint(); box({ x: sp.x - 0.1, y: sp.y, w: 0.2, h: 0.2 }, '#ffffff', { label: 'SPAWN' });
+  box({ x: pl.x + 0.06, y: pl.y + 0.04, w: PW - 0.12, h: PH - 0.08 }, '#ffffff');
+}
+
 /* ============ Loop ============ */
+const STEP = 1 / 120;
+// Test hook: the headless tests (tests/run.mjs) drive the game through this. Harmless for players.
+window.easy = {
+  LEVELS, STEP, keys, pl, dev,
+  get state() { return state; }, get L() { return L; }, get levelIdx() { return levelIdx; }, get TRAPS() { return TRAPS; },
+  get dead() { return dead; }, get won() { return won; }, get deaths() { return deaths; }, get cpIdx() { return cpIdx; },
+  get checkpoints() { return checkpoints; }, get solids() { return solids; }, get hazards() { return hazards; },
+  get enemies() { return enemies; }, get doors() { return doors; }, get invert() { return invert; }, get remap() { return remap; },
+  get time() { return time; }, get playTime() { return playTime; },
+  playLevel, goto: devGoto, setAll: devSetAll, trapAt,
+  step(n = 1) { for (let i = 0; i < n; i++) advance(STEP, 1); },
+};
+
 loadLevel(0);
 const clock = new THREE.Clock();
-const STEP = 1 / 120;
 let acc = 0;
-function frame() {
-  requestAnimationFrame(frame);
-  const dt = Math.min(clock.getDelta(), 0.1);
+// One frame of game logic: `steps` fixed physics ticks, then HUD, narrator, particles, music and the scene sync.
+function advance(dt, steps) {
   if (state === 'play') {
-    acc += dt;
-    while (acc >= STEP) { tick(STEP); acc -= STEP; }
+    for (let i = 0; i < steps; i++) tick(STEP);
     if (!dead) playTime += dt;
     updateHUD(dt);
   } else if (state === 'title') pl.squash = 1 + Math.sin(time * 3) * 0.03;
   if (state !== 'paused') { time += dt; updateNarrator(dt); updateParticles(dt); }
   syncMusic();
   render(state === 'paused' ? 0 : dt, time);
+}
+function frame() {
+  requestAnimationFrame(frame);
+  let dt = Math.min(clock.getDelta(), 0.1), steps = 0;
+  if (DEV && dev.frozen) { steps = dev.steps; dt = steps * STEP; dev.steps = 0; }
+  else {
+    if (DEV) dt *= dev.speed;
+    if (state === 'play') { acc += dt; while (acc >= STEP) { steps++; acc -= STEP; } }
+  }
+  advance(dt, steps);
+  if (DEV) devUpdate();
   renderer.render(scene, camera);
 }
 frame();

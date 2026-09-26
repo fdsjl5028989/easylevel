@@ -1,0 +1,11 @@
+{
+  "name": "easy-level",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.mjs"
+  },
+  "devDependencies": {
+    "three": "0.169.0"
+  }
+}

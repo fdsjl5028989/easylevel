@@ -22,6 +22,34 @@ version of a trap stays fixed, so the player's knowledge eventually sticks and t
 
 ---
 
+## Reviewing without playing: dev mode and tests
+- **Dev mode:** double-click `dev.html` (it opens `easy-level.html#dev`), or add `?dev` / `#dev` to the URL. A panel lets you pick a level,
+  jump straight to any trap at any version (deaths respawn you right there until you pass a checkpoint),
+  set all traps to v1 or final, and toggle **God** (G), **Lock versions** (L), **Hitboxes** (H, shows what the
+  physics sees: fake/hidden blocks, crushers, spike and enemy boxes, trap zones, the Guide's caught line),
+  **Freeze** (F) with frame-step (`.`, Shift+`.` = 0.1 s) and **speed** (`[` `]`). `` ` `` hides the panel.
+  Dev mode never saves progress or best times.
+- **Tests:** `npm install` once, then `npm test` (about 8 s). `node tests/run.mjs 1-3` or `node tests/run.mjs guide`
+  filters by level or trap id. They run the real game script headless in Node (`tests/harness.mjs` extracts it from
+  the HTML and fakes the browser). The suite checks:
+  level data (text for every version, zones, a bot route for every trap), checkpoints stand on ground, trap
+  versions escalate and stop at final, **a bot beats the final version of every trap and every whole level with
+  0 deaths**, timing windows and the chase margin ("Numbers to watch"), and 20 s of random button mashing per
+  version mix never crashes.
+- **Routes** live in `tests/routes.mjs`: one generator per trap that presses real keys (`b.go`, `b.wait`,
+  `b.jump`, `b.jumpTo`). **Adding a trap means adding its route**; the data check fails until you do. If you
+  retune a trap and its route breaks, either the route needs new timings or the trap became impossible.
+- The game exposes `window.easy` (state getters, `playLevel`, `goto(trapId, version)`, `setAll`, `step(n)`)
+  for the tests; it's harmless for players.
+- Measured (perfect play): 1-1 Tunnel start window 1.65 s of every 2.4 s; 1-3 Dark Mode tunnel v3 0.65 s of every 2.2 s
+  (first half) and 0.48 s of every 1.2 s (second half); 1-3 chase v3 closest approach 4.45 tiles (about 0.8 s of slack).
+- 1-3's tuning numbers are constants just above `LEVEL_3` (flash, tunnel, mushrooms, bridge, statues, beam, Guide).
+  To try values without editing the file, `loadGame({ patch })` in `tests/harness.mjs` can rewrite the source before
+  it runs. Traps that fought the physics while being designed: a backwards wave of 4 crushers has no window at all below
+  a ~3 s period; a forward wave moving at Pip's speed (lag ≈ tile width / 7) is trivially easy; the light bridge halves
+  must be wider than a full jump (4.8 tiles) or you skip them; statues need their wake-up delay or they're under you
+  when you land.
+
 ## Tech stack
 - three.js `0.169.0` as an ES module from `cdn.jsdelivr.net` (the artifact CSP only allows cdnjs, jsdelivr/npm and Google Fonts).
 - Fonts: Fredoka (UI/display) and JetBrains Mono (counters), from Google Fonts.
@@ -102,23 +130,52 @@ block → fake edge → cracked tiles are the safe ones), Spring (launches you i
 (controls reversed → announced but not really reversed → flip every 1.6 s), Tunnel (crush → wave), Door (runs away → painting on a
 trapdoor → real, with a cardboard decoy). Checkpoint 1 lies once.
 
-**1-2 Loading…** (dusk, a fast glitchy song) turns the game's own screens and settings against you: Loading Screen (spike behind
-an opaque loader → see-through loader, spike from behind), Gap Remastered (a fake "v1.0" patch card, floor drops →
-the platform becomes a lift), Early Exit (fake Level Complete → trapdoor; then it's a portal past a wall), Settings (jump
-becomes ↓ → a "reset" that lies → left and right swapped), Camera (stuck, you walk off-screen → upside down), Pause Screen
-(fake pause over a crumbling bridge → opaque, the Guide calls "Jump!"), Prop Spike (a fake death that still counts → real),
-Exit (loops back to the checkpoint → EXIT loops, NOT THE EXIT is real).
+**1-2 Loading…** (dusk, a fast glitchy song) turns the game's own screens and settings against you. Every trap has 3
+versions except Early Exit (15 forced deaths): Loading Screen (spike behind an opaque loader → see-through loader, spike
+from behind → a "part 2 of 2" loading bar with a second spike from the right), Gap Remastered (a fake "v1.0" patch card,
+floor drops → the platform becomes a lift that sinks while you stand on it (`GAP_SINK` 1.5 tiles/s): ride too long and
+you can't reach the ledge, about a 0.8 s window to jump off → the lift stops 3.5 tiles short and sinks slower
+(`GAP_SINK_V3` 0.8), so jump off at the end of its run, about a 0.45 s window), Early
+Exit (fake Level Complete → trapdoor; then it's a portal past a wall), Settings (jump becomes ↓ → a "reset" that lies →
+left and right swapped), Camera (stuck, you walk off-screen → spinning, with a second spike → upside down, two spikes),
+Pause Screen (opaque fake pause over a bridge that crumbles on contact, the Guide calls "Jump!" → crumbles faster, raised
+last step, the Guide calls "Big jump!" → see-through pause, the steps only crumble once you've been on the bridge 1 s),
+Prop Spike (the spike is a prop, but touching it still counts as a death, and jumping hits invisible ceiling spikes →
+real spike under visible ceiling spikes (bottom at `PROP_CEIL` 2.5); a clean small hop gets a new spike popped up right
+under your landing, so v2 always gets you → ceiling lowered to `PROP_CEIL_V3` 2.2, no pop-up spike: hold jump
+0.04–0.075 s), Exit (loops back to the checkpoint → EXIT loops, NOT THE EXIT is real → NOT THE EXIT hops back
+over your head, so you jump EXIT twice).
+- Early Exit has no v3 on purpose: its v2 can't kill you (it's a portal, there's no pit), so a v3 would only ever appear
+  if a stuck player pressed R. Give it a way to die first if it needs a third version.
+- Pause Screen and Camera versions were reordered on player feedback (the see-through pause is the final version; the
+  spinning camera comes before the upside-down one).
+- Spikes can be `hidden` (invisible until they kill you); the dev hitbox overlay shows them dashed.
 
-**1-3 Lights Out** (night, minor-key song; lantern radius ~5.5): Flash (lights show fakes; the real platforms only
-appear when you're close → the real ones drift), Eyes (hedgehog with a hidden sleeping bat above → awake swinging bat),
-Tunnel Dark Mode (lantern out → glowing crushers with a backwards wave), Mushrooms (the glow is on fakes → glow on
-crumbling real platforms, lantern taken), Guide chase (the Guide chases at 5.5 tiles/s, deletes the block you're
-jumping to → deletes two blocks that come back after 1.2 s and 0.8 s). Ending: the Guide gets stuck and asks for help.
+**1-3 Lights Out** (night, minor-key song) is the finale: 8 traps, all with 3 versions (16 forced deaths), and the
+tightest final versions. It's very dark: near-black sky (nothing shows as a silhouette), a small lantern (`LANTERN`
+intensity, 3.4 tiles) that shines the way Pip faces, sleeping bats drawn pitch black, no "z Z z" at night. Checkpoints at
+53, 99, 127 and 167.
+Flash (the flash shows fake platforms; real ones only show within 1.6 tiles → no fakes, the platforms are only visible
+while the lights flash (every `FLASH_EVERY` 2.6 s, lantern blinks first), so jump from memory → visible in the dark
+again, but they drift and vanish during each flash), Eyes (hedgehog under an invisible sleeping bat → one swinging bat →
+two bats swinging opposite ways), Tunnel Dark Mode (backwards wave of 3, unlit → 4 glowing crushers → split in two with a
+rest room: first half backwards `LAMP_V3A`, go as its first crusher starts lifting, 0.65 s window; second half fast and
+forwards `LAMP_V3B`, go as its first crusher slams, 0.48 s window), Mushrooms (glow on fakes → real crumbling steps
+(`SHROOM_CRUMBLE` 0.3 s) at mixed heights, lantern taken → flatter steps that bob by `SHROOM_BOB`), **Light Bridge**
+(two 6-tile halves of light, too wide to jump, pillar between: the Guide turns it off halfway → both halves on a timer
+with a countdown banner → the halves take turns, 0.8 s each), **Statues** (spikes that only move while they're behind
+the way you face, after `STATUE_DELAY`; tapping back for a moment freezes them and restarts the delay. You hop them and
+must look back → more and faster → faster and quicker off the mark; they give up at x 147), **Lighthouse** (floor
+tiles only exist inside a sweeping beam: the Guide says walk in the dark → the beam sweeps slowly from the ledge →
+faster, narrower, pauses halfway), Guide chase (deletes the block you jump to → blocks come back, and at the end the
+Guide says it's stuck, then "Just kidding!" and charges at `GUIDE_CHARGE` after `FAKE_STUCK` s; stopping kills you →
+also faster (`GUIDE_FAST`) and the first EXIT door is a painting on a trapdoor; jump it to reach the real one).
 
 ## Open items / next steps
-1. **Playtest the reworked 1-3.** The chase margin was only estimated (about 2–4 tiles at the second wait). If
-   it's too hard, lower `T.gx += 5.5 * dt` or restore the blocks sooner. If it's too easy, raise the speed or start the Guide closer
-   (`pl.x - 13`).
+1. **Playtest the reworked 1-3** (third rework, from player feedback: too bright, too few traps, Flash, Tunnel,
+   Mushrooms and the Guide too easy). Three new traps (Light Bridge, Statues, Lighthouse) and new versions everywhere.
+   The bot's reaction-lag success rates for the finals (0.1 s lag): Tunnel 100%, Guide 43%, the rest 83–100%. The
+   Statues depend on a tap-back move the bot does perfectly, so watch how they feel to a human.
 2. Possible difficulty check across World 1: 1-3 should be the hardest level now; confirm 1-2 isn't harder.
 3. Ideas pitched but not built yet:
    - **Traps that remember:** bring back 1-1 traps in their *old* versions to punish memory (1-2's Gap does a bit of this).

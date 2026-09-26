@@ -19,3 +19,7 @@ Touch controls on mobile.
 A single HTML file with no build step. It loads three.js from a CDN, and all music and sound
 effects are made in code with WebAudio.
 Design and dev notes are in [CONTINUE.md](CONTINUE.md).
+
+## Dev tools
+- Double-click `dev.html` (or open `easy-level.html?dev`) for the dev panel: jump to any trap at any version, god mode, hitboxes, frame-step, slow-mo.
+- `npm install`, then `npm test`: a headless bot checks that every trap's final version (and every level) can be beaten, plus data checks and a crash fuzzer.
